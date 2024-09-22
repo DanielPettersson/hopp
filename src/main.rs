@@ -13,8 +13,11 @@ fn main() {
             // PhysicsDebugPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, jump)
+        .add_systems(FixedUpdate, jump)
+        .add_systems(FixedUpdate, mouse_drag)
+        .add_systems(Update, drag_indicator)
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
+        .add_event::<MouseDrag>()
         .run();
 }
 
@@ -88,11 +91,13 @@ fn setup(
             transform: Transform::from_xyz(0., 50., 0.),
             ..default()
         },
-        MouseDrag::default(),
     ));
 
     let mut camera = Camera2dBundle::default();
-    camera.projection.scaling_mode = ScalingMode::AutoMin { min_width: 400.0, min_height: 400.0 };
+    camera.projection.scaling_mode = ScalingMode::AutoMin {
+        min_width: 400.0,
+        min_height: 400.0,
+    };
     commands.spawn(camera);
 }
 
@@ -117,34 +122,95 @@ fn create_rectangle(
 }
 
 fn jump(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    mut query_draggable: Query<(&mut ExternalImpulse, &mut MouseDrag, &ColliderMassProperties)>,
-    query_window: Query<&Window, With<PrimaryWindow>>,
+    mut query_jumper: Query<(&mut ExternalImpulse, &ColliderMassProperties)>,
+    mut mouse_drag_event: EventReader<MouseDrag>,
 ) {
-    let cursor_pos = query_window.single().cursor_position();
-
-    for (mut impulse, mut mouse_drag, mass_props) in query_draggable.iter_mut() {
-        if mouse_button.just_pressed(MouseButton::Left) {
-            mouse_drag.start = cursor_pos;
-        }
-        if mouse_button.just_released(MouseButton::Left) {
-            if let Some(drag_start) = mouse_drag.start {
-                if let Some(drag_end) = cursor_pos {
-                    let drag = drag_end - drag_start;
-                    let impulse_vec = Vec2 {
-                        x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -28.,
-                        y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * 56.,
-                    };
-                    println!("{:?}", mass_props.mass);
-                    impulse.apply_impulse(impulse_vec);
-                }
+    for drag in mouse_drag_event.read() {
+        if drag.done {
+            for (mut impulse, mass_props) in query_jumper.iter_mut() {
+                let drag = drag.end - drag.start;
+                let impulse_vec = Vec2 {
+                    x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
+                    y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
+                };
+                impulse.apply_impulse(impulse_vec);
             }
-            mouse_drag.start = None;
         }
     }
 }
 
-#[derive(Component, Default)]
+fn drag_indicator(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut mouse_drag_event: EventReader<MouseDrag>,
+    mut indicator_entity: Local<Option<Entity>>,
+) {
+    for drag in mouse_drag_event.read() {
+        if drag.done {
+            if let Some(entity) = *indicator_entity {
+                commands.entity(entity).despawn();
+                *indicator_entity = None;
+            }
+        } else if indicator_entity.is_none() {
+            *indicator_entity = Some(commands.spawn((
+                MaterialMesh2dBundle {
+                    mesh: Mesh2dHandle(meshes.add(Circle::new(10.))),
+                    material: materials.add(Color::srgb(1., 0., 0.)),
+                    transform: Transform::from_xyz(drag.start.x, drag.start.y, 1.),
+                    ..default()
+                },
+            )).id());
+        }
+    }
+}
+
+fn mouse_drag(
+    mouse_button: Res<ButtonInput<MouseButton>>,
+    query_window: Query<&Window, With<PrimaryWindow>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
+    mut event_writer: EventWriter<MouseDrag>,
+    mut drag_start: Local<Vec2>,
+) {
+    if mouse_button.pressed(MouseButton::Left) || mouse_button.just_released(MouseButton::Left) {
+        let (camera, camera_transform) = query_camera.single();
+
+        let cursor_pos = query_window.single().cursor_position()
+            .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
+            .map(|ray| ray.origin.truncate());
+
+        if mouse_button.just_pressed(MouseButton::Left) {
+            if let Some(pos) = cursor_pos {
+                *drag_start = pos;
+                event_writer.send(MouseDrag {
+                    start: pos,
+                    end: pos,
+                    done: false,
+                });
+            }
+        } else if mouse_button.pressed(MouseButton::Left) {
+            if let Some(pos) = cursor_pos {
+                event_writer.send(MouseDrag {
+                    start: *drag_start,
+                    end: pos,
+                    done: false,
+                });
+            }
+        } else if mouse_button.just_released(MouseButton::Left) {
+            if let Some(pos) = cursor_pos {
+                event_writer.send(MouseDrag {
+                    start: *drag_start,
+                    end: pos,
+                    done: true
+                });
+            }
+        }
+    }
+}
+
+#[derive(Event, Default, Debug)]
 struct MouseDrag {
-    start: Option<Vec2>,
+    start: Vec2,
+    end: Vec2,
+    done: bool
 }
