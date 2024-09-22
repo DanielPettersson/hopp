@@ -1,23 +1,23 @@
-use avian2d::parry::na::ComplexField;
+mod mouse_drag;
+
+use crate::mouse_drag::{MouseDrag, MouseDragPlugin};
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use bevy::window::PrimaryWindow;
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default().with_length_unit(100.0),
+            MouseDragPlugin,
             // PhysicsDebugPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(FixedUpdate, jump)
-        .add_systems(FixedUpdate, mouse_drag)
+        .add_systems(Update, jump)
         .add_systems(Update, drag_indicator)
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
-        .add_event::<MouseDrag>()
         .run();
 }
 
@@ -91,6 +91,7 @@ fn setup(
             transform: Transform::from_xyz(0., 50., 0.),
             ..default()
         },
+        Jumper,
     ));
 
     let mut camera = Camera2dBundle::default();
@@ -122,7 +123,7 @@ fn create_rectangle(
 }
 
 fn jump(
-    mut query_jumper: Query<(&mut ExternalImpulse, &ColliderMassProperties)>,
+    mut query_jumper: Query<(&mut ExternalImpulse, &ColliderMassProperties), With<Jumper>>,
     mut mouse_drag_event: EventReader<MouseDrag>,
 ) {
     for drag in mouse_drag_event.read() {
@@ -133,7 +134,7 @@ fn jump(
                     x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
                     y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
                 };
-                impulse.apply_impulse(impulse_vec);
+                impulse.set_impulse(impulse_vec);
             }
         }
     }
@@ -144,73 +145,40 @@ fn drag_indicator(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut mouse_drag_event: EventReader<MouseDrag>,
-    mut indicator_entity: Local<Option<Entity>>,
+    mut query_drag_indicator: Query<(&mut Transform, Entity), With<DragIndicator>>,
+    query_jumper: Query<&Transform, (With<Jumper>, Without<DragIndicator>)>,
 ) {
+    for (_, entity) in query_drag_indicator.iter_mut() {
+        commands.entity(entity).despawn();
+    }
     for drag in mouse_drag_event.read() {
-        if drag.done {
-            if let Some(entity) = *indicator_entity {
-                commands.entity(entity).despawn();
-                *indicator_entity = None;
-            }
-        } else if indicator_entity.is_none() {
-            *indicator_entity = Some(commands.spawn((
-                MaterialMesh2dBundle {
-                    mesh: Mesh2dHandle(meshes.add(Circle::new(10.))),
-                    material: materials.add(Color::srgb(1., 0., 0.)),
-                    transform: Transform::from_xyz(drag.start.x, drag.start.y, 1.),
-                    ..default()
-                },
-            )).id());
-        }
-    }
-}
-
-fn mouse_drag(
-    mouse_button: Res<ButtonInput<MouseButton>>,
-    query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
-    mut event_writer: EventWriter<MouseDrag>,
-    mut drag_start: Local<Vec2>,
-) {
-    if mouse_button.pressed(MouseButton::Left) || mouse_button.just_released(MouseButton::Left) {
-        let (camera, camera_transform) = query_camera.single();
-
-        let cursor_pos = query_window.single().cursor_position()
-            .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-            .map(|ray| ray.origin.truncate());
-
-        if mouse_button.just_pressed(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                *drag_start = pos;
-                event_writer.send(MouseDrag {
-                    start: pos,
-                    end: pos,
-                    done: false,
-                });
-            }
-        } else if mouse_button.pressed(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                event_writer.send(MouseDrag {
-                    start: *drag_start,
-                    end: pos,
-                    done: false,
-                });
-            }
-        } else if mouse_button.just_released(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                event_writer.send(MouseDrag {
-                    start: *drag_start,
-                    end: pos,
-                    done: true
-                });
+        if !drag.done {
+            for jumper in query_jumper.iter() {
+                let drag_length = (drag.end - drag.start).length().max(10.);
+                let drag_mid = (drag.end - drag.start) / 2.;
+                let drag_indicator_transform =
+                    Transform::from_translation(jumper.translation - drag_mid.extend(1.))
+                        .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
+                            drag_mid.to_angle()
+                        } else {
+                            0.
+                        }));
+                commands.spawn((
+                    DragIndicator,
+                    MaterialMesh2dBundle {
+                        mesh: Mesh2dHandle(meshes.add(Rectangle::new(drag_length, 2.))),
+                        material: materials.add(Color::srgb(1., 0., 0.)),
+                        transform: drag_indicator_transform,
+                        ..default()
+                    },
+                ));
             }
         }
     }
 }
 
-#[derive(Event, Default, Debug)]
-struct MouseDrag {
-    start: Vec2,
-    end: Vec2,
-    done: bool
-}
+#[derive(Component)]
+struct DragIndicator;
+
+#[derive(Component)]
+struct Jumper;
