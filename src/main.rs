@@ -26,59 +26,64 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        400.,
+    let red = materials.add(Color::srgb(1., 0., 0.));
+    let yellow = materials.add(Color::srgb(1., 1., 0.));
+    let green = materials.add(Color::srgb(0., 1., 0.));
+    let rectangle = Mesh2dHandle(meshes.add(Rectangle::new(1., 1.)));
+
+    commands.insert_resource(MaterialHandles { red: red.clone() });
+
+    commands.insert_resource(MeshHandles {
+        rectangle: rectangle.clone(),
+    });
+
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
+        379.,
         20.,
         Vec3::new(0., -200., 0.),
-    );
+    ));
 
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
-        400.,
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
+        379.,
         20.,
         Vec3::new(0., 200., 0.),
-    );
+    ));
 
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
         20.,
-        400.,
+        379.,
         Vec3::new(-200., 0., 0.),
-    );
+    ));
 
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
         20.,
-        400.,
+        379.,
         Vec3::new(200., 0., 0.),
-    );
+    ));
 
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
         100.,
         20.,
         Vec3::new(-100., 70., 0.),
-    );
+    ));
 
-    create_rectangle(
-        &mut commands,
-        &mut meshes,
-        &mut materials,
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
         100.,
         20.,
         Vec3::new(100., 00., 0.),
-    );
+    ));
 
     commands.spawn((
         RigidBody::Dynamic,
@@ -87,7 +92,7 @@ fn setup(
         ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
         MaterialMesh2dBundle {
             mesh: Mesh2dHandle(meshes.add(Capsule2d::new(5., 10.))),
-            material: materials.add(Color::srgb(1., 1., 0.)),
+            material: yellow.clone(),
             transform: Transform::from_xyz(0., 50., 0.),
             ..default()
         },
@@ -103,23 +108,23 @@ fn setup(
 }
 
 fn create_rectangle(
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
+    mesh_handle: Mesh2dHandle,
+    material_handle: Handle<ColorMaterial>,
     width: f32,
     height: f32,
     translation: Vec3,
-) {
-    commands.spawn((
+) -> impl Bundle {
+    (
         RigidBody::Static,
-        Collider::rectangle(width, height),
+        Collider::rectangle(1., 1.),
         MaterialMesh2dBundle {
-            mesh: Mesh2dHandle(meshes.add(Rectangle::new(width, height))),
-            material: materials.add(Color::srgb(0., 1., 0.)),
-            transform: Transform::from_translation(translation),
+            mesh: mesh_handle,
+            material: material_handle,
+            transform: Transform::from_translation(translation)
+                .with_scale(Vec3::new(width, height, 1.)),
             ..default()
         },
-    ));
+    )
 }
 
 fn jump(
@@ -142,39 +147,59 @@ fn jump(
 
 fn drag_indicator(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     mut mouse_drag_event: EventReader<MouseDrag>,
     mut query_drag_indicator: Query<(&mut Transform, Entity), With<DragIndicator>>,
     query_jumper: Query<&Transform, (With<Jumper>, Without<DragIndicator>)>,
+    material_handles: Res<MaterialHandles>,
+    mesh_handles: Res<MeshHandles>,
 ) {
-    for (_, entity) in query_drag_indicator.iter_mut() {
-        commands.entity(entity).despawn();
-    }
+    let mut drag_done = false;
     for drag in mouse_drag_event.read() {
-        if !drag.done {
-            for jumper in query_jumper.iter() {
-                let drag_length = (drag.end - drag.start).length().max(10.);
-                let drag_mid = (drag.end - drag.start) / 2.;
-                let drag_indicator_transform =
-                    Transform::from_translation(jumper.translation - drag_mid.extend(1.))
-                        .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
-                            drag_mid.to_angle()
-                        } else {
-                            0.
-                        }));
+        drag_done = drag.done || drag_done;
+
+        for jumper in query_jumper.iter() {
+            let drag_length = (drag.end - drag.start).length().max(10.);
+            let drag_mid = (drag.end - drag.start) / 2.;
+            let drag_indicator_transform =
+                Transform::from_translation(jumper.translation - drag_mid.extend(1.))
+                    .with_scale(Vec3::new(drag_length, 2., 1.))
+                    .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
+                        drag_mid.to_angle()
+                    } else {
+                        0.
+                    }));
+
+            if query_drag_indicator.is_empty() {
                 commands.spawn((
                     DragIndicator,
                     MaterialMesh2dBundle {
-                        mesh: Mesh2dHandle(meshes.add(Rectangle::new(drag_length, 2.))),
-                        material: materials.add(Color::srgb(1., 0., 0.)),
+                        mesh: mesh_handles.rectangle.clone(),
+                        material: material_handles.red.clone(),
                         transform: drag_indicator_transform,
                         ..default()
                     },
                 ));
             }
+            for (mut tranform, _) in query_drag_indicator.iter_mut() {
+                *tranform = drag_indicator_transform;
+            }
         }
     }
+    if drag_done {
+        for (_, entity) in query_drag_indicator.iter_mut() {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+#[derive(Resource)]
+struct MaterialHandles {
+    red: Handle<ColorMaterial>,
+}
+
+#[derive(Resource)]
+struct MeshHandles {
+    rectangle: Mesh2dHandle,
 }
 
 #[derive(Component)]
