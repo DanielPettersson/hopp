@@ -5,6 +5,7 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -85,19 +86,66 @@ fn setup(
         Vec3::new(100., 00., 0.),
     ));
 
-    commands.spawn((
-        RigidBody::Dynamic,
-        Collider::capsule(5., 10.),
-        ExternalAngularImpulse::new(0.).with_persistence(false),
-        ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
-        MaterialMesh2dBundle {
-            mesh: Mesh2dHandle(meshes.add(Capsule2d::new(5., 10.))),
-            material: yellow.clone(),
-            transform: Transform::from_xyz(0., 50., 0.),
-            ..default()
-        },
-        Jumper,
-    ));
+    let circle = Mesh2dHandle(meshes.add(Circle::new(5.)));
+
+    let center = commands
+        .spawn((
+            RigidBody::Dynamic,
+            Collider::circle(5.),
+            ExternalAngularImpulse::new(0.).with_persistence(false),
+            ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
+            LinearDamping(0.1),
+            AngularDamping(0.6),
+            Restitution::new(0.5),
+            MaterialMesh2dBundle {
+                mesh: circle.clone(),
+                material: yellow.clone(),
+                transform: Transform::from_xyz(0., 50., 0.),
+                ..default()
+            },
+            Jumper,
+        ))
+        .id();
+
+    let mut edges: Vec<Entity> = Vec::with_capacity(10);
+    for i in (0..10).map(|i| i as f32 * PI * 2. / 10.) {
+        let x = i.cos() * 20.;
+        let y = i.sin() * 20.;
+
+        edges.push(
+            commands
+                .spawn((
+                    RigidBody::Dynamic,
+                    Collider::circle(5.),
+                    LinearDamping(0.1),
+                    AngularDamping(0.6),
+                    Restitution::new(0.5),
+                    MaterialMesh2dBundle {
+                        mesh: circle.clone(),
+                        material: yellow.clone(),
+                        transform: Transform::from_xyz(x, y + 50., 0.),
+                        ..default()
+                    },
+                    Jumper,
+                ))
+                .id(),
+        );
+    }
+    for i in 0..10 {
+        let j = if i > 0 { i - 1 } else { 9 };
+
+        commands.spawn(
+            DistanceJoint::new(center, edges[i])
+                .with_rest_length(20.)
+                .with_compliance(0.00001)
+                .with_angular_velocity_damping(100.0),
+        );
+        commands.spawn(
+            DistanceJoint::new(edges[i], edges[j])
+                .with_rest_length(10.)
+                .with_compliance(0.00001),
+        );
+    }
 
     let mut camera = Camera2dBundle::default();
     camera.projection.scaling_mode = ScalingMode::AutoMin {
