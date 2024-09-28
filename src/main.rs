@@ -90,6 +90,20 @@ fn setup(
         20.,
         Vec3::new(100., 00., 0.),
     ));
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
+        100.,
+        20.,
+        Vec3::new(-90., -50., 0.),
+    ));
+    commands.spawn(create_rectangle(
+        rectangle.clone(),
+        green.clone(),
+        100.,
+        20.,
+        Vec3::new(90., -90., 0.),
+    ));
 
     let num_rows = 10;
     let num_cols = 10;
