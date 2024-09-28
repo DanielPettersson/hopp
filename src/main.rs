@@ -5,7 +5,6 @@ use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use std::f32::consts::PI;
 
 fn main() {
     App::new()
@@ -13,12 +12,20 @@ fn main() {
             DefaultPlugins,
             PhysicsPlugins::default().with_length_unit(100.0),
             MouseDragPlugin,
-            // PhysicsDebugPlugin::default(),
+            //PhysicsDebugPlugin::default(),
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, jump)
         .add_systems(Update, drag_indicator)
+        .insert_resource(SubstepCount(15))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
+        .insert_gizmo_config(
+            PhysicsGizmos {
+                axis_lengths: None,
+                ..default()
+            },
+            GizmoConfig::default(),
+        )
         .run();
 }
 
@@ -69,7 +76,6 @@ fn setup(
         379.,
         Vec3::new(200., 0., 0.),
     ));
-
     commands.spawn(create_rectangle(
         rectangle.clone(),
         green.clone(),
@@ -77,7 +83,6 @@ fn setup(
         20.,
         Vec3::new(-100., 70., 0.),
     ));
-
     commands.spawn(create_rectangle(
         rectangle.clone(),
         green.clone(),
@@ -86,65 +91,108 @@ fn setup(
         Vec3::new(100., 00., 0.),
     ));
 
-    let circle = Mesh2dHandle(meshes.add(Circle::new(5.)));
+    let num_rows = 10;
+    let num_cols = 10;
+    let size = 1.5;
+    let gap: f32 = size / 2.;
+    let d_gap = (size * size + gap * gap).sqrt();
+    let compliance = 0.0002 / size;
+    let blob_r = Mesh2dHandle(meshes.add(Rectangle::new(2., 2.)));
 
-    let center = commands
-        .spawn((
-            RigidBody::Dynamic,
-            Collider::circle(5.),
-            ExternalAngularImpulse::new(0.).with_persistence(false),
-            ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
-            LinearDamping(0.1),
-            AngularDamping(0.6),
-            Restitution::new(0.5),
-            MaterialMesh2dBundle {
-                mesh: circle.clone(),
-                material: yellow.clone(),
-                transform: Transform::from_xyz(0., 50., 0.),
-                ..default()
-            },
-            Jumper,
-        ))
-        .id();
-
-    let mut edges: Vec<Entity> = Vec::with_capacity(10);
-    for i in (0..10).map(|i| i as f32 * PI * 2. / 10.) {
-        let x = i.cos() * 20.;
-        let y = i.sin() * 20.;
-
-        edges.push(
-            commands
-                .spawn((
-                    RigidBody::Dynamic,
-                    Collider::circle(5.),
-                    LinearDamping(0.1),
-                    AngularDamping(0.6),
-                    Restitution::new(0.5),
-                    MaterialMesh2dBundle {
-                        mesh: circle.clone(),
-                        material: yellow.clone(),
-                        transform: Transform::from_xyz(x, y + 50., 0.),
-                        ..default()
-                    },
-                    Jumper,
-                ))
-                .id(),
-        );
+    let mut rows: Vec<Vec<Entity>> = Vec::with_capacity(num_rows);
+    for r in 0..num_rows {
+        let mut row = Vec::with_capacity(num_cols);
+        for c in 0..num_cols {
+            let x = c as f32 * (size + gap) + size / 2.;
+            let y = r as f32 * (size + gap) + size / 2.;
+            row.push(
+                commands
+                    .spawn((
+                        RigidBody::Dynamic,
+                        Collider::rectangle(1., 1.),
+                        ExternalAngularImpulse::new(0.).with_persistence(false),
+                        ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
+                        LinearDamping(0.1),
+                        AngularDamping(0.1),
+                        Friction::new(0.4),
+                        Restitution::new(0.5),
+                        MaterialMesh2dBundle {
+                            mesh: blob_r.clone(),
+                            material: yellow.clone(),
+                            transform: Transform::from_xyz(x, y, -1.).with_scale(Vec3::splat(size)),
+                            ..default()
+                        },
+                        Jumper,
+                    ))
+                    .id(),
+            );
+        }
+        rows.push(row);
     }
-    for i in 0..10 {
-        let j = if i > 0 { i - 1 } else { 9 };
 
-        commands.spawn(
-            DistanceJoint::new(center, edges[i])
-                .with_rest_length(20.)
-                .with_compliance(0.00001)
-                .with_angular_velocity_damping(100.0),
-        );
-        commands.spawn(
-            DistanceJoint::new(edges[i], edges[j])
-                .with_rest_length(10.)
-                .with_compliance(0.00001),
-        );
+    for (r, row) in rows.iter().enumerate() {
+        for (c, square) in row.iter().enumerate() {
+            if c < num_cols - 1 {
+                commands.spawn(
+                    DistanceJoint::new(*square, row[c + 1])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, -size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, row[c + 1])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, row[c + 1])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, -size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(d_gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, row[c + 1])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(d_gap),
+                );
+            }
+            if r < num_rows - 1 {
+                commands.spawn(
+                    DistanceJoint::new(*square, rows[r + 1][c])
+                        .with_local_anchor_1(Vec2::new(-size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, rows[r + 1][c])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, rows[r + 1][c])
+                        .with_local_anchor_1(Vec2::new(-size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(d_gap),
+                );
+                commands.spawn(
+                    DistanceJoint::new(*square, rows[r + 1][c])
+                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
+                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
+                        .with_compliance(compliance)
+                        .with_rest_length(d_gap),
+                );
+            }
+        }
     }
 
     let mut camera = Camera2dBundle::default();
