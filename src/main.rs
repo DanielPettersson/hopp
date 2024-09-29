@@ -1,6 +1,10 @@
 mod mouse_drag;
+mod player;
+mod drag_indicator;
 
-use crate::mouse_drag::{MouseDrag, MouseDragPlugin};
+use crate::drag_indicator::DragIndicatorPlugin;
+use crate::mouse_drag::MouseDragPlugin;
+use crate::player::PlayerPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
@@ -12,11 +16,11 @@ fn main() {
             DefaultPlugins,
             PhysicsPlugins::default().with_length_unit(100.0),
             MouseDragPlugin,
+            PlayerPlugin,
+            DragIndicatorPlugin,
             //PhysicsDebugPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, jump)
-        .add_systems(Update, drag_indicator)
         .insert_resource(SubstepCount(15))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_gizmo_config(
@@ -35,7 +39,6 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let red = materials.add(Color::srgb(1., 0., 0.));
-    let yellow = materials.add(Color::srgb(1., 1., 0.));
     let green = materials.add(Color::srgb(0., 1., 0.));
     let rectangle = Mesh2dHandle(meshes.add(Rectangle::new(1., 1.)));
 
@@ -105,110 +108,6 @@ fn setup(
         Vec3::new(90., -90., 0.),
     ));
 
-    let num_rows = 10;
-    let num_cols = 10;
-    let size = 1.5;
-    let gap: f32 = size / 2.;
-    let d_gap = (size * size + gap * gap).sqrt();
-    let compliance = 0.0002 / size;
-    let blob_r = Mesh2dHandle(meshes.add(Rectangle::new(2., 2.)));
-
-    let mut rows: Vec<Vec<Entity>> = Vec::with_capacity(num_rows);
-    for r in 0..num_rows {
-        let mut row = Vec::with_capacity(num_cols);
-        for c in 0..num_cols {
-            let x = c as f32 * (size + gap) + size / 2.;
-            let y = r as f32 * (size + gap) + size / 2.;
-            row.push(
-                commands
-                    .spawn((
-                        RigidBody::Dynamic,
-                        Collider::rectangle(1., 1.),
-                        ExternalAngularImpulse::new(0.).with_persistence(false),
-                        ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
-                        LinearDamping(0.1),
-                        AngularDamping(0.1),
-                        Friction::new(0.4),
-                        Restitution::new(0.5),
-                        MaterialMesh2dBundle {
-                            mesh: blob_r.clone(),
-                            material: yellow.clone(),
-                            transform: Transform::from_xyz(x, y, -1.).with_scale(Vec3::splat(size)),
-                            ..default()
-                        },
-                        Jumper,
-                    ))
-                    .id(),
-            );
-        }
-        rows.push(row);
-    }
-
-    for (r, row) in rows.iter().enumerate() {
-        for (c, square) in row.iter().enumerate() {
-            if c < num_cols - 1 {
-                commands.spawn(
-                    DistanceJoint::new(*square, row[c + 1])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, -size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, row[c + 1])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, row[c + 1])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, -size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(d_gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, row[c + 1])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(d_gap),
-                );
-            }
-            if r < num_rows - 1 {
-                commands.spawn(
-                    DistanceJoint::new(*square, rows[r + 1][c])
-                        .with_local_anchor_1(Vec2::new(-size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, rows[r + 1][c])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, rows[r + 1][c])
-                        .with_local_anchor_1(Vec2::new(-size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(d_gap),
-                );
-                commands.spawn(
-                    DistanceJoint::new(*square, rows[r + 1][c])
-                        .with_local_anchor_1(Vec2::new(size * 0.5, size * 0.5))
-                        .with_local_anchor_2(Vec2::new(-size * 0.5, -size * 0.5))
-                        .with_compliance(compliance)
-                        .with_rest_length(d_gap),
-                );
-            }
-        }
-    }
-
     let mut camera = Camera2dBundle::default();
     camera.projection.scaling_mode = ScalingMode::AutoMin {
         min_width: 400.0,
@@ -237,71 +136,6 @@ fn create_rectangle(
     )
 }
 
-fn jump(
-    mut query_jumper: Query<(&mut ExternalImpulse, &ColliderMassProperties), With<Jumper>>,
-    mut mouse_drag_event: EventReader<MouseDrag>,
-) {
-    for drag in mouse_drag_event.read() {
-        if drag.done {
-            for (mut impulse, mass_props) in query_jumper.iter_mut() {
-                let drag = drag.end - drag.start;
-                let impulse_vec = Vec2 {
-                    x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
-                    y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
-                };
-                impulse.set_impulse(impulse_vec);
-            }
-        }
-    }
-}
-
-fn drag_indicator(
-    mut commands: Commands,
-    mut mouse_drag_event: EventReader<MouseDrag>,
-    mut query_drag_indicator: Query<(&mut Transform, Entity), With<DragIndicator>>,
-    query_jumper: Query<&Transform, (With<Jumper>, Without<DragIndicator>)>,
-    material_handles: Res<MaterialHandles>,
-    mesh_handles: Res<MeshHandles>,
-) {
-    let mut drag_done = false;
-    for drag in mouse_drag_event.read() {
-        drag_done = drag.done || drag_done;
-
-        for jumper in query_jumper.iter() {
-            let drag_length = (drag.end - drag.start).length().max(10.);
-            let drag_mid = (drag.end - drag.start) / 2.;
-            let drag_indicator_transform =
-                Transform::from_translation(jumper.translation - drag_mid.extend(1.))
-                    .with_scale(Vec3::new(drag_length, 2., 1.))
-                    .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
-                        drag_mid.to_angle()
-                    } else {
-                        0.
-                    }));
-
-            if query_drag_indicator.is_empty() {
-                commands.spawn((
-                    DragIndicator,
-                    MaterialMesh2dBundle {
-                        mesh: mesh_handles.rectangle.clone(),
-                        material: material_handles.red.clone(),
-                        transform: drag_indicator_transform,
-                        ..default()
-                    },
-                ));
-            }
-            for (mut tranform, _) in query_drag_indicator.iter_mut() {
-                *tranform = drag_indicator_transform;
-            }
-        }
-    }
-    if drag_done {
-        for (_, entity) in query_drag_indicator.iter_mut() {
-            commands.entity(entity).despawn();
-        }
-    }
-}
-
 #[derive(Resource)]
 struct MaterialHandles {
     red: Handle<ColorMaterial>,
@@ -311,9 +145,3 @@ struct MaterialHandles {
 struct MeshHandles {
     rectangle: Mesh2dHandle,
 }
-
-#[derive(Component)]
-struct DragIndicator;
-
-#[derive(Component)]
-struct Jumper;
