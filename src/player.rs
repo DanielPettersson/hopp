@@ -25,9 +25,9 @@ fn setup(
 ) {
     let yellow = materials.add(Color::srgb(1., 1., 0.));
 
-    let num_rows = 6;
-    let num_cols = 6;
-    let size = 3.;
+    let num_rows = 10;
+    let num_cols = 10;
+    let size = 2.;
     let gap: f32 = size / 2.;
     let d_gap = (size * size + gap * gap).sqrt();
     let compliance = 0.00018 / size;

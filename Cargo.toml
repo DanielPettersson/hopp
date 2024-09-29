@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-avian2d = { version = "0.1.2", features = ["simd"] }
-bevy = { version = "0.14.2", features = ["dynamic_linking"] }
+avian2d = { version = "0.1.2", features = ["simd", "parallel"] }
+bevy = { version = "0.14.2", features = ["dynamic_linking", "wayland"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 
 # Enable a small amount of optimization in the dev profile.
