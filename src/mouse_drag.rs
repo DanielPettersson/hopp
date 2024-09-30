@@ -1,7 +1,10 @@
 use bevy::app::App;
 use bevy::input::ButtonInput;
 use bevy::math::Vec2;
-use bevy::prelude::{Camera, Event, EventWriter, GlobalTransform, Local, MouseButton, Plugin, Query, Res, Update, Window, With};
+use bevy::prelude::{
+    Camera, Event, EventWriter, GlobalTransform, Local, MouseButton, Plugin, Query, Res, Update,
+    Window, With,
+};
 use bevy::window::PrimaryWindow;
 
 fn mouse_drag(
@@ -10,6 +13,7 @@ fn mouse_drag(
     query_camera: Query<(&Camera, &GlobalTransform)>,
     mut event_writer: EventWriter<MouseDrag>,
     mut drag_start: Local<Vec2>,
+    mut drag_last: Local<Vec2>,
 ) {
     if mouse_button.pressed(MouseButton::Left) || mouse_button.just_released(MouseButton::Left) {
         let (camera, camera_transform) = query_camera.single();
@@ -23,6 +27,7 @@ fn mouse_drag(
         if mouse_button.just_pressed(MouseButton::Left) {
             if let Some(pos) = cursor_pos {
                 *drag_start = pos;
+                *drag_last = pos;
                 event_writer.send(MouseDrag {
                     start: pos,
                     end: pos,
@@ -31,6 +36,7 @@ fn mouse_drag(
             }
         } else if mouse_button.pressed(MouseButton::Left) {
             if let Some(pos) = cursor_pos {
+                *drag_last = pos;
                 event_writer.send(MouseDrag {
                     start: *drag_start,
                     end: pos,
@@ -38,13 +44,11 @@ fn mouse_drag(
                 });
             }
         } else if mouse_button.just_released(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                event_writer.send(MouseDrag {
-                    start: *drag_start,
-                    end: pos,
-                    done: true,
-                });
-            }
+            event_writer.send(MouseDrag {
+                start: *drag_start,
+                end: cursor_pos.unwrap_or(*drag_last),
+                done: true,
+            });
         }
     }
 }
@@ -60,7 +64,6 @@ pub struct MouseDragPlugin;
 
 impl Plugin for MouseDragPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, mouse_drag)
-            .add_event::<MouseDrag>();
+        app.add_systems(Update, mouse_drag).add_event::<MouseDrag>();
     }
 }

@@ -1,10 +1,12 @@
-use bevy::app::{App, Update};
-use bevy::math::{Quat, Vec3};
-use bevy::prelude::{default, Commands, Component, Entity, EventReader, Plugin, Query, Res, Transform, With, Without};
-use bevy::sprite::MaterialMesh2dBundle;
-use crate::{MaterialHandles, MeshHandles};
 use crate::mouse_drag::MouseDrag;
 use crate::player::Player;
+use crate::{MaterialHandles, MeshHandles};
+use bevy::app::{App, Update};
+use bevy::math::{Quat, Vec3};
+use bevy::prelude::{
+    default, Commands, Component, Entity, EventReader, Plugin, Query, Res, Transform, With, Without,
+};
+use bevy::sprite::MaterialMesh2dBundle;
 
 #[derive(Component)]
 struct DragIndicator;
@@ -21,7 +23,7 @@ fn drag_indicator(
     mut commands: Commands,
     mut mouse_drag_event: EventReader<MouseDrag>,
     mut query_drag_indicator: Query<(&mut Transform, Entity), With<DragIndicator>>,
-    query_jumper: Query<&Transform, (With<Player>, Without<DragIndicator>)>,
+    query_player: Query<&Transform, (With<Player>, Without<DragIndicator>)>,
     material_handles: Res<MaterialHandles>,
     mesh_handles: Res<MeshHandles>,
 ) {
@@ -29,32 +31,36 @@ fn drag_indicator(
     for drag in mouse_drag_event.read() {
         drag_done = drag.done || drag_done;
 
-        for jumper in query_jumper.iter() {
-            let drag_length = (drag.end - drag.start).length().max(10.);
-            let drag_mid = (drag.end - drag.start) / 2.;
-            let drag_indicator_transform =
-                Transform::from_translation(jumper.translation - drag_mid.extend(1.))
-                    .with_scale(Vec3::new(drag_length, 2., 1.))
-                    .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
-                        drag_mid.to_angle()
-                    } else {
-                        0.
-                    }));
+        let translation = query_player
+            .iter()
+            .map(|t| t.translation)
+            .fold(Vec3::ZERO, |a, v| a + v)
+            / query_player.iter().count() as f32;
 
-            if query_drag_indicator.is_empty() {
-                commands.spawn((
-                    DragIndicator,
-                    MaterialMesh2dBundle {
-                        mesh: mesh_handles.rectangle.clone(),
-                        material: material_handles.red.clone(),
-                        transform: drag_indicator_transform,
-                        ..default()
-                    },
-                ));
-            }
-            for (mut tranform, _) in query_drag_indicator.iter_mut() {
-                *tranform = drag_indicator_transform;
-            }
+        let drag_length = (drag.end - drag.start).length().max(10.);
+        let drag_mid = (drag.end - drag.start) / 2.;
+        let drag_indicator_transform =
+            Transform::from_translation(translation - drag_mid.extend(-1.))
+                .with_scale(Vec3::new(drag_length, 2., 1.))
+                .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
+                    drag_mid.to_angle()
+                } else {
+                    0.
+                }));
+
+        if query_drag_indicator.is_empty() {
+            commands.spawn((
+                DragIndicator,
+                MaterialMesh2dBundle {
+                    mesh: mesh_handles.rectangle.clone(),
+                    material: material_handles.red.clone(),
+                    transform: drag_indicator_transform,
+                    ..default()
+                },
+            ));
+        }
+        for (mut tranform, _) in query_drag_indicator.iter_mut() {
+            *tranform = drag_indicator_transform;
         }
     }
     if drag_done {
