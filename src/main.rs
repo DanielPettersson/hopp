@@ -1,9 +1,7 @@
-mod mouse_drag;
+mod drag;
 mod player;
-mod drag_indicator;
 
-use crate::drag_indicator::DragIndicatorPlugin;
-use crate::mouse_drag::MouseDragPlugin;
+use crate::drag::DragPlugin;
 use crate::player::PlayerPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
@@ -15,13 +13,12 @@ fn main() {
         .add_plugins((
             DefaultPlugins,
             PhysicsPlugins::default().with_length_unit(100.0),
-            MouseDragPlugin,
+            DragPlugin,
             PlayerPlugin,
-            DragIndicatorPlugin,
             //PhysicsDebugPlugin::default(),
         ))
         .add_systems(Startup, setup)
-        .insert_resource(SubstepCount(15))
+        .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_gizmo_config(
             PhysicsGizmos {

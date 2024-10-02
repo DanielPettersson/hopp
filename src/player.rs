@@ -1,4 +1,4 @@
-use crate::mouse_drag::MouseDrag;
+use crate::drag::Drag;
 use avian2d::prelude::{
     AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse,
     ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody,
@@ -6,21 +6,25 @@ use avian2d::prelude::{
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::asset::Assets;
 use bevy::color::Color;
-use bevy::math::Vec2;
-use bevy::prelude::{
-    default, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, Handle, Mesh, Query,
-    Rectangle, ResMut, Transform, Vec3, With,
-};
+use bevy::math::{Quat, Vec2};
+use bevy::prelude::{default, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, Handle, Mesh, Query, Rectangle, Res, ResMut, Resource, Transform, Vec3, With, Without};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use crate::{MaterialHandles, MeshHandles};
 
 #[derive(Component)]
 pub struct Player;
+
+#[derive(Component)]
+struct DragIndicator;
+
+#[derive(Resource)]
+struct MaxDrag(f32);
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup).add_systems(Update, jump);
+        app.add_systems(Startup, setup).add_systems(Update, (jump, drag_indicator));
     }
 }
 
@@ -72,7 +76,7 @@ fn setup(
 ) {
     let yellow = materials.add(Color::srgb(1., 1., 0.));
 
-    let num_rows = 10;
+    let num_rows = 9;
     let num_cols = num_rows;
     let size = 2.;
     let gap: f32 = size / 2.;
@@ -172,16 +176,19 @@ fn setup(
             }
         }
     }
+    
+    commands.insert_resource(MaxDrag(100.0));
 }
 
 fn jump(
     mut query_jumper: Query<(&mut ExternalImpulse, &mut ExternalAngularImpulse, &ColliderMassProperties), With<Player>>,
-    mut mouse_drag_event: EventReader<MouseDrag>,
+    mut mouse_drag_event: EventReader<Drag>,
+    max_drag: Res<MaxDrag>,
 ) {
     for drag in mouse_drag_event.read() {
         if drag.done {
             for (mut impulse, mut angular_impulse, mass_props) in query_jumper.iter_mut() {
-                let drag = drag.end - drag.start;
+                let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
                 let impulse_vec = Vec2 {
                     x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
                     y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
@@ -190,6 +197,59 @@ fn jump(
                 
                 angular_impulse.set_impulse(drag.x * 40.);
             }
+        }
+    }
+}
+
+fn drag_indicator(
+    mut commands: Commands,
+    mut mouse_drag_event: EventReader<Drag>,
+    mut query_drag_indicator: Query<(&mut Transform, Entity), With<DragIndicator>>,
+    query_player: Query<&Transform, (With<Player>, Without<DragIndicator>)>,
+    material_handles: Res<MaterialHandles>,
+    mesh_handles: Res<MeshHandles>,
+    max_drag: Res<MaxDrag>,
+) {
+    let mut drag_done = false;
+    for drag in mouse_drag_event.read() {
+        drag_done = drag.done || drag_done;
+
+        let translation = query_player
+            .iter()
+            .map(|t| t.translation)
+            .fold(Vec3::ZERO, |a, v| a + v)
+            / query_player.iter().count() as f32;
+
+        let drag_vec = (drag.end - drag.start).clamp_length_max(max_drag.0);
+        let drag_length = drag_vec.length().max(10.);
+        let drag_mid = drag_vec / 2.;
+        let drag_indicator_transform =
+            Transform::from_translation(translation - drag_mid.extend(-1.))
+                .with_scale(Vec3::new(drag_length, 2., 1.))
+                .with_rotation(Quat::from_rotation_z(if drag_length > 0. {
+                    drag_mid.to_angle()
+                } else {
+                    0.
+                }));
+
+        if query_drag_indicator.is_empty() {
+            commands.spawn((
+                DragIndicator,
+                MaterialMesh2dBundle {
+                    mesh: mesh_handles.rectangle.clone(),
+                    material: material_handles.red.clone(),
+                    transform: drag_indicator_transform,
+                    ..default()
+                },
+            ));
+        }
+        for (mut tranform, _) in query_drag_indicator.iter_mut() {
+            *tranform = drag_indicator_transform;
+        }
+    }
+    if drag_done {
+        for (_, entity) in query_drag_indicator.iter_mut() {
+            commands.entity(entity).despawn();
         }
     }
 }
