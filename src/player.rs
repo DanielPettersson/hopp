@@ -1,8 +1,5 @@
 use crate::drag::Drag;
-use avian2d::prelude::{
-    AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse,
-    ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody,
-};
+use avian2d::prelude::{AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse, ExternalForce, ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody};
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::asset::Assets;
 use bevy::color::Color;
@@ -32,6 +29,7 @@ impl Plugin for PlayerPlugin {
 pub struct PlayerBundle {
     rigid_body: RigidBody,
     collider: Collider,
+    external_force: ExternalForce,
     external_impulse: ExternalImpulse,
     external_angular_impulse: ExternalAngularImpulse,
     linear_damping: LinearDamping,
@@ -52,6 +50,7 @@ impl PlayerBundle {
         PlayerBundle {
             rigid_body: RigidBody::Dynamic,
             collider: Collider::rectangle(1., 1.),
+            external_force: ExternalForce::new(Vec2::ZERO).with_persistence(false),
             external_impulse: ExternalImpulse::new(Vec2::ZERO).with_persistence(false),
             external_angular_impulse: ExternalAngularImpulse::new(0.).with_persistence(false),
             linear_damping: LinearDamping(0.1),
@@ -181,13 +180,13 @@ fn setup(
 }
 
 fn jump(
-    mut query_jumper: Query<(&mut ExternalImpulse, &mut ExternalAngularImpulse, &ColliderMassProperties), With<Player>>,
+    mut query_jumper: Query<(&mut ExternalImpulse, &mut ExternalAngularImpulse, &mut ExternalForce, &ColliderMassProperties), With<Player>>,
     mut mouse_drag_event: EventReader<Drag>,
     max_drag: Res<MaxDrag>,
 ) {
     for drag in mouse_drag_event.read() {
         if drag.done {
-            for (mut impulse, mut angular_impulse, mass_props) in query_jumper.iter_mut() {
+            for (mut impulse, mut angular_impulse, _, mass_props) in query_jumper.iter_mut() {
                 let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
                 let impulse_vec = Vec2 {
                     x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
@@ -196,6 +195,15 @@ fn jump(
                 impulse.set_impulse(impulse_vec);
                 
                 angular_impulse.set_impulse(drag.x * 40.);
+            }
+        } else {
+            for (_, _, mut force, mass_props) in query_jumper.iter_mut() {
+                let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
+                let force_vec = Vec2 {
+                    x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * 30.,
+                    y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * 60.,
+                };
+                force.set_force(force_vec);
             }
         }
     }

@@ -1,6 +1,6 @@
 use crate::{Height, WORLD_SIZE};
 use bevy::app::App;
-use bevy::prelude::{default, AssetServer, Camera, Commands, Component, FixedUpdate, GlobalTransform, JustifyText, Local, Plugin, Query, Res, Startup, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::prelude::{default, AssetServer, Camera, Color, Commands, Component, FixedUpdate, GlobalTransform, JustifyText, Local, Plugin, Query, Res, Startup, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
 use bevy::sprite::Anchor;
 
 pub struct ScorePlugin;
@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
-                    ..default()
+                    color: Color::srgb(1.5, 1.5, 1.5),
                 },
             )
             .with_justify(JustifyText::Left),
@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_translation(Vec3::new(
                 -WORLD_SIZE / 2. + 10.,
                 WORLD_SIZE / 2.,
-                0.0,
+                2.0,
             )),
             ..default()
         },

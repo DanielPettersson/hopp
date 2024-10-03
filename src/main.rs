@@ -96,5 +96,5 @@ fn increase_height(
     mut height: ResMut<Height>,
 
 ) {
-    height.0 += time.delta_seconds() * 5.0;
+    height.0 += time.delta_seconds() * 10.0;
 }
