@@ -1,12 +1,40 @@
 mod drag;
 mod player;
+mod camera;
 
+use crate::camera::CameraPlugin;
 use crate::drag::DragPlugin;
 use crate::player::PlayerPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use bevy::render::camera::ScalingMode;
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+
+#[derive(Resource)]
+struct MaterialHandles {
+    red: Handle<ColorMaterial>,
+}
+
+#[derive(Resource)]
+struct MeshHandles {
+    rectangle: Mesh2dHandle,
+}
+
+#[derive(Component)]
+struct MovementState {
+    position: Vec2,
+    old_position: Vec2,
+    velocity: Vec2,
+}
+
+impl MovementState {
+    fn new(position: Vec2, velocity: Vec2) -> Self {
+        Self {
+            position,
+            old_position: position,
+            velocity,
+        }
+    }
+}
 
 fn main() {
     App::new()
@@ -15,18 +43,12 @@ fn main() {
             PhysicsPlugins::default().with_length_unit(100.0),
             DragPlugin,
             PlayerPlugin,
-            //PhysicsDebugPlugin::default(),
+            CameraPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, update_movement)
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
-        .insert_gizmo_config(
-            PhysicsGizmos {
-                axis_lengths: None,
-                ..default()
-            },
-            GizmoConfig::default(),
-        )
         .run();
 }
 
@@ -105,12 +127,21 @@ fn setup(
         Vec3::new(90., -90., 0.),
     ));
 
-    let mut camera = Camera2dBundle::default();
-    camera.projection.scaling_mode = ScalingMode::AutoMin {
-        min_width: 400.0,
-        min_height: 400.0,
-    };
-    commands.spawn(camera);
+    
+}
+
+
+
+fn update_movement(
+    fixed_time: Res<Time<Fixed>>,
+    mut movement_query: Query<(&mut Transform, &MovementState)>,
+) {
+    for (mut transform, state) in movement_query.iter_mut() {
+        transform.translation = state
+            .old_position
+            .lerp(state.position, fixed_time.overstep_fraction())
+            .extend(transform.translation.z);
+    }
 }
 
 fn create_rectangle(
@@ -131,14 +162,4 @@ fn create_rectangle(
             ..default()
         },
     )
-}
-
-#[derive(Resource)]
-struct MaterialHandles {
-    red: Handle<ColorMaterial>,
-}
-
-#[derive(Resource)]
-struct MeshHandles {
-    rectangle: Mesh2dHandle,
 }
