@@ -7,9 +7,9 @@ use bevy::app::{App, Plugin, Startup, Update};
 use bevy::asset::Assets;
 use bevy::color::Color;
 use bevy::math::{Quat, Vec2};
-use bevy::prelude::{default, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, Handle, Mesh, Query, Rectangle, Res, ResMut, Resource, Transform, Vec3, With, Without};
+use bevy::prelude::{default, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, FixedUpdate, Handle, Mesh, Query, Rectangle, Res, ResMut, Resource, Transform, Vec3, With, Without};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use crate::{MaterialHandles, MeshHandles};
+use crate::{Height, MaterialHandles, MeshHandles};
 
 #[derive(Component)]
 pub struct Player;
@@ -24,7 +24,7 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup).add_systems(Update, (jump, drag_indicator));
+        app.add_systems(Startup, setup).add_systems(Update, (jump, drag_indicator)).add_systems(FixedUpdate, increase_height);
     }
 }
 
@@ -74,7 +74,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let yellow = materials.add(Color::srgb(1., 1., 0.));
+    let yellow = materials.add(Color::srgb(3., 3., 0.));
 
     let num_rows = 9;
     let num_cols = num_rows;
@@ -89,7 +89,7 @@ fn setup(
         let mut row = Vec::with_capacity(num_cols);
         for c in 0..num_cols {
             let x = c as f32 * (size + gap) + size / 2.;
-            let y = r as f32 * (size + gap) + size / 2.;
+            let y = r as f32 * (size + gap) + size / 2. - num_rows as f32 * (size + gap);
             row.push(
                 commands
                     .spawn(PlayerBundle::new(
@@ -250,6 +250,14 @@ fn drag_indicator(
     if drag_done {
         for (_, entity) in query_drag_indicator.iter_mut() {
             commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn increase_height(mut height: ResMut<Height>, query_player: Query<&Transform, With<Player>>) {
+    for transform in query_player.iter() {
+        if transform.translation.y > height.0 {
+            height.0 = transform.translation.y;
         }
     }
 }

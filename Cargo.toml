@@ -7,6 +7,7 @@ edition = "2021"
 avian2d = { version = "0.1.2", features = ["simd", "parallel"] }
 bevy = { version = "0.14.2", features = ["dynamic_linking", "wayland"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+rand = "0.8.5"
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
