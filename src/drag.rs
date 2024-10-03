@@ -1,7 +1,7 @@
 use bevy::app::App;
 use bevy::input::ButtonInput;
 use bevy::math::Vec2;
-use bevy::prelude::{Camera, Event, EventWriter, GlobalTransform, KeyCode, Local, MouseButton, Plugin, Query, Res, Update, Window, With};
+use bevy::prelude::{Camera, Event, EventWriter, GlobalTransform, KeyCode, Local, MouseButton, Plugin, Query, Res, Update, Vec3Swizzles, Window, With};
 use bevy::window::PrimaryWindow;
 
 #[derive(Event, Default, Debug)]
@@ -66,7 +66,7 @@ fn mouse_drag(
             .single()
             .cursor_position()
             .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor))
-            .map(|ray| ray.origin.truncate());
+            .map(|ray| ray.origin.truncate()).map(|p| p - camera_transform.translation().xy());
 
         if mouse_button.just_pressed(MouseButton::Left) {
             if let Some(pos) = cursor_pos {
