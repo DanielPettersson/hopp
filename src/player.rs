@@ -229,7 +229,7 @@ fn drag_indicator(
             / query_player.iter().count() as f32;
 
         let drag_vec = (drag.end - drag.start).clamp_length_max(max_drag.0);
-        let drag_length = drag_vec.length().max(10.);
+        let drag_length = drag_vec.length().max(1.);
         let drag_mid = drag_vec / 2.;
         let drag_indicator_transform =
             Transform::from_translation(translation - drag_mid.extend(-1.))
