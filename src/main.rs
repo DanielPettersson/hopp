@@ -1,24 +1,24 @@
+mod camera;
 mod drag;
 mod player;
-mod camera;
-mod world;
 mod score;
+mod world;
 
 use crate::camera::CameraPlugin;
 use crate::drag::DragPlugin;
 use crate::player::PlayerPlugin;
+use crate::score::ScorePlugin;
+use crate::world::WorldPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
-use crate::score::ScorePlugin;
-use crate::world::WorldPlugin;
 
 static WORLD_SIZE: f32 = 400.;
 
 #[derive(Resource)]
 struct MaterialHandles {
     red: Handle<ColorMaterial>,
-    green: Handle<ColorMaterial>,
+    platforms: [Handle<Image>; 3],
 }
 
 #[derive(Resource)]
@@ -36,7 +36,7 @@ impl MovementState {
     fn new(position: Vec2) -> Self {
         Self {
             position,
-            old_position: position
+            old_position: position,
         }
     }
 }
@@ -68,12 +68,21 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     let red = materials.add(Color::srgb(1., 0., 0.));
-    let green = materials.add(Color::srgb(0., 1., 0.));
     let rectangle = Mesh2dHandle(meshes.add(Rectangle::new(1., 1.)));
 
-    commands.insert_resource(MaterialHandles { red: red.clone(), green: green.clone() });
+    let platform_textures = [
+        asset_server.load("images/platform1.png"),
+        asset_server.load("images/platform2.png"),
+        asset_server.load("images/platform3.png"),
+    ];
+
+    commands.insert_resource(MaterialHandles {
+        red: red.clone(),
+        platforms: platform_textures,
+    });
     commands.insert_resource(MeshHandles {
         rectangle: rectangle.clone(),
     });
@@ -91,10 +100,8 @@ fn update_movement(
     }
 }
 
-fn increase_height(
-    time: Res<Time>,
-    mut height: ResMut<Height>,
-
-) {
-    height.0 += time.delta_seconds() * 10.0;
+fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
+    if height.0 > 50. {
+        height.0 += time.delta_seconds() * 10.0;
+    }
 }

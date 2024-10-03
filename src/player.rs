@@ -176,7 +176,7 @@ fn setup(
         }
     }
     
-    commands.insert_resource(MaxDrag(100.0));
+    commands.insert_resource(MaxDrag(120.0));
 }
 
 fn jump(

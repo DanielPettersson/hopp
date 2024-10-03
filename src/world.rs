@@ -1,16 +1,13 @@
-use crate::{Height, MaterialHandles, MeshHandles, WORLD_SIZE};
+use crate::{Height, MaterialHandles, WORLD_SIZE};
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::App;
-use bevy::asset::{Assets, Handle};
-use bevy::color::Color;
-use bevy::math::Vec3;
-use bevy::prelude::{
-    default, Bundle, ColorMaterial, Commands, Component, Entity, FixedUpdate, Mesh, Plugin,
-    Query, Rectangle, Res, ResMut, Resource, Startup, Transform, Vec2, With,
-};
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::asset::Handle;
+use bevy::prelude::{default, AssetServer, Bundle, Commands, Component, Entity, FixedUpdate, Image, ImageScaleMode, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Startup, Transform, Vec2, With};
+use rand::Rng;
 use std::ops::{Deref, DerefMut};
+
+static PLATFORM_TEXTURE_SIZE: f32 = 46.;
 
 pub struct WorldPlugin;
 
@@ -46,60 +43,56 @@ impl DerefMut for HighestPlatformPos {
 struct PlatformBundle {
     rigid_body: RigidBody,
     collider: Collider,
-    material_mesh2d_bundle: MaterialMesh2dBundle<ColorMaterial>,
+    sprite: SpriteBundle,
     platform: Platform,
+    image_scale_mode: ImageScaleMode,
 }
 
 impl PlatformBundle {
-    fn new(
-        mesh_handle: Mesh2dHandle,
-        material_handle: Handle<ColorMaterial>,
-        width: f32,
-        height: f32,
-        translation: Vec2,
-    ) -> Self {
+    fn new(texture: Handle<Image>, width: f32, height: f32, translation: Vec2) -> Self {
         Self {
             rigid_body: RigidBody::Static,
-            collider: Collider::rectangle(1., 1.),
-            material_mesh2d_bundle: MaterialMesh2dBundle {
-                mesh: mesh_handle,
-                material: material_handle,
-                transform: Transform::from_translation(translation.extend(0.0))
-                    .with_scale(Vec3::new(width, height, 1.)),
+            collider: Collider::rectangle(width, height),
+            sprite: SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(width, height)),
+                    rect: Some(Rect::new(0., 0., PLATFORM_TEXTURE_SIZE, height)),
+                    ..default()
+                },
+                transform: Transform::from_translation(translation.extend(0.0)),
+                texture,
                 ..default()
             },
             platform: Platform,
+            image_scale_mode: ImageScaleMode::Tiled {
+                tile_x: true,
+                tile_y: false,
+                stretch_value: 1.0,
+            },
         }
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-) {
-    let green = materials.add(Color::srgb(0., 1., 0.));
-    let rectangle = Mesh2dHandle(meshes.add(Rectangle::new(1., 1.)));
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let texture = asset_server.load("images/platform1.png");
+
     commands.spawn(PlatformBundle::new(
-        rectangle.clone(),
-        green.clone(),
+        texture.clone(),
         400.,
-        20.,
-        Vec2::new(0., -150.),
+        PLATFORM_TEXTURE_SIZE,
+        Vec2::new(0., -180.),
     ));
 
     commands.spawn(PlatformBundle::new(
-        rectangle.clone(),
-        green.clone(),
-        100.,
+        texture.clone(),
+        PLATFORM_TEXTURE_SIZE * 2.,
         20.,
         Vec2::new(-100., -75.),
     ));
 
     commands.spawn(PlatformBundle::new(
-        rectangle.clone(),
-        green.clone(),
-        100.,
+        texture.clone(),
+        PLATFORM_TEXTURE_SIZE * 2.,
         20.,
         Vec2::new(100., 0.),
     ));
@@ -110,7 +103,6 @@ fn setup(
 fn add_platforms(
     mut commands: Commands,
     material_handles: Res<MaterialHandles>,
-    mesh_handles: Res<MeshHandles>,
     height: Res<Height>,
     mut highest_platform_pos: ResMut<HighestPlatformPos>,
 ) {
@@ -124,10 +116,10 @@ fn add_platforms(
         }
         highest_platform_pos.x = new_x;
 
+        let mut rng = rand::thread_rng();
         commands.spawn(PlatformBundle::new(
-            mesh_handles.rectangle.clone(),
-            material_handles.green.clone(),
-            100.,
+            material_handles.platforms[rng.gen_range(0..material_handles.platforms.len())].clone(),
+            92.,
             20.,
             **highest_platform_pos,
         ));
@@ -140,7 +132,7 @@ fn remove_platforms(
     platform_query: Query<(Entity, &Transform), With<Platform>>,
 ) {
     for (entity, transform) in platform_query.iter() {
-        if transform.translation.y < height.0 - WORLD_SIZE / 2. - transform.scale.y {
+        if transform.translation.y < height.0 - WORLD_SIZE / 2. - 20. {
             commands.entity(entity).despawn();
         }
     }

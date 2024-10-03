@@ -20,7 +20,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                "100",
+                "0",
                 TextStyle {
                     font: font.clone(),
                     font_size: 30.0,
