@@ -1,6 +1,6 @@
 use crate::{Height, WORLD_SIZE};
 use bevy::app::App;
-use bevy::prelude::{default, AssetServer, Commands, Component, FixedUpdate, JustifyText, Local, Plugin, Query, Res, Startup, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::prelude::{default, AssetServer, Camera, Commands, Component, FixedUpdate, GlobalTransform, JustifyText, Local, Plugin, Query, Res, Startup, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
 use bevy::sprite::Anchor;
 
 pub struct ScorePlugin;
@@ -40,9 +40,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-fn scroll_score(height: Res<Height>, mut score_query: Query<&mut Transform, With<Score>>) {
+fn scroll_score(query_camera: Query<&GlobalTransform, With<Camera>>, mut score_query: Query<&mut Transform, With<Score>>) {
     for mut transform in score_query.iter_mut() {
-        transform.translation.y = height.0 + WORLD_SIZE / 2. - 10.;
+        transform.translation.y = query_camera.single().translation().y + WORLD_SIZE / 2. - 10.;
     }
 }
 
