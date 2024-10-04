@@ -1,9 +1,9 @@
-use crate::{Height, MaterialHandles, WORLD_SIZE};
+use crate::{GameState, Height, ImageAssets, WORLD_SIZE};
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, AssetServer, Bundle, Commands, Component, Entity, FixedUpdate, Image, ImageScaleMode, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Startup, Transform, Vec2, With};
+use bevy::prelude::{default, in_state, Bundle, Commands, Component, Entity, FixedUpdate, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Vec2, With};
 use rand::Rng;
 use std::ops::{Deref, DerefMut};
 
@@ -13,16 +13,17 @@ pub struct WorldPlugin;
 
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(FixedUpdate, add_platforms)
-            .add_systems(FixedUpdate, remove_platforms);
+        app.insert_resource(HighestPlatformPos::default())
+            .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
+            .add_systems(FixedUpdate, add_platforms.run_if(in_state(GameState::InGame)))
+            .add_systems(FixedUpdate, remove_platforms.run_if(in_state(GameState::InGame)));
     }
 }
 
 #[derive(Component)]
 struct Platform;
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 struct HighestPlatformPos(Vec2);
 
 impl Deref for HighestPlatformPos {
@@ -73,36 +74,34 @@ impl PlatformBundle {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let texture = asset_server.load("images/platform1.png");
-
+fn create_initial_platforms(mut commands: Commands, images: Res<ImageAssets>, mut highest_platform_pos: ResMut<HighestPlatformPos>) {
     commands.spawn(PlatformBundle::new(
-        texture.clone(),
+        images.platforms[0].clone(),
         400.,
         PLATFORM_TEXTURE_SIZE,
         Vec2::new(0., -180.),
     ));
 
     commands.spawn(PlatformBundle::new(
-        texture.clone(),
+        images.platforms[0].clone(),
         PLATFORM_TEXTURE_SIZE * 2.,
         20.,
         Vec2::new(-100., -75.),
     ));
 
     commands.spawn(PlatformBundle::new(
-        texture.clone(),
+        images.platforms[0].clone(),
         PLATFORM_TEXTURE_SIZE * 2.,
         20.,
         Vec2::new(100., 0.),
     ));
-
-    commands.insert_resource(HighestPlatformPos(Vec2::new(100., 0.)));
+    
+    highest_platform_pos.0 = Vec2::new(100., 0.);
 }
 
 fn add_platforms(
     mut commands: Commands,
-    material_handles: Res<MaterialHandles>,
+    images: Res<ImageAssets>,
     height: Res<Height>,
     mut highest_platform_pos: ResMut<HighestPlatformPos>,
 ) {
@@ -118,7 +117,7 @@ fn add_platforms(
 
         let mut rng = rand::thread_rng();
         commands.spawn(PlatformBundle::new(
-            material_handles.platforms[rng.gen_range(0..material_handles.platforms.len())].clone(),
+            images.platforms[rng.gen_range(0..images.platforms.len())].clone(),
             92.,
             20.,
             **highest_platform_pos,

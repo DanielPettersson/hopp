@@ -12,18 +12,45 @@ use crate::world::WorldPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
+use bevy_asset_loader::prelude::{
+    AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
+};
 
 static WORLD_SIZE: f32 = 400.;
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
+enum GameState {
+    #[default]
+    Loading,
+    InGame,
+    GameOver,
+}
+
+#[derive(AssetCollection, Resource)]
+struct ImageAssets {
+    #[asset(
+        paths("images/platform1.png", "images/platform2.png", "images/platform3.png"),
+        collection(typed)
+    )]
+    platforms: Vec<Handle<Image>>,
+}
+
+#[derive(AssetCollection, Resource)]
+struct FontAssets {
+    #[asset(path = "fonts/segmental.ttf")]
+    segmental: Handle<Font>,
+}
 
 #[derive(Resource)]
 struct MaterialHandles {
     red: Handle<ColorMaterial>,
-    platforms: [Handle<Image>; 3],
+    yellow: Handle<ColorMaterial>,
 }
 
 #[derive(Resource)]
 struct MeshHandles {
     rectangle: Mesh2dHandle,
+    rectangle_2: Mesh2dHandle,
 }
 
 #[derive(Component)]
@@ -55,9 +82,19 @@ fn main() {
             WorldPlugin,
             ScorePlugin,
         ))
+        .init_state::<GameState>()
+        .add_loading_state(
+            LoadingState::new(GameState::Loading)
+                .continue_to_state(GameState::InGame)
+                .load_collection::<ImageAssets>()
+                .load_collection::<FontAssets>(),
+        )
         .add_systems(Startup, setup)
-        .add_systems(Update, update_movement)
-        .add_systems(FixedUpdate, increase_height)
+        .add_systems(Update, update_movement.run_if(in_state(GameState::InGame)))
+        .add_systems(
+            FixedUpdate,
+            increase_height.run_if(in_state(GameState::InGame)),
+        )
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_resource(Height(0.0))
@@ -68,23 +105,14 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
-    let red = materials.add(Color::srgb(1., 0., 0.));
-    let rectangle = Mesh2dHandle(meshes.add(Rectangle::new(1., 1.)));
-
-    let platform_textures = [
-        asset_server.load("images/platform1.png"),
-        asset_server.load("images/platform2.png"),
-        asset_server.load("images/platform3.png"),
-    ];
-
     commands.insert_resource(MaterialHandles {
-        red: red.clone(),
-        platforms: platform_textures,
+        red: materials.add(Color::srgb(1., 0., 0.)),
+        yellow: materials.add(Color::srgb(3., 3., 0.)),
     });
     commands.insert_resource(MeshHandles {
-        rectangle: rectangle.clone(),
+        rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
+        rectangle_2: Mesh2dHandle(meshes.add(Rectangle::new(2., 2.))),
     });
 }
 

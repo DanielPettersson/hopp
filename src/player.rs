@@ -1,12 +1,17 @@
 use crate::drag::Drag;
-use avian2d::prelude::{AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse, ExternalForce, ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody};
-use bevy::app::{App, Plugin, Startup, Update};
-use bevy::asset::Assets;
-use bevy::color::Color;
+use crate::{GameState, Height, MaterialHandles, MeshHandles};
+use avian2d::prelude::{
+    AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse,
+    ExternalForce, ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody,
+};
+use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
-use bevy::prelude::{default, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, FixedUpdate, Handle, Mesh, Query, Rectangle, Res, ResMut, Resource, Transform, Vec3, With, Without};
+use bevy::prelude::{
+    default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader,
+    FixedUpdate, Handle, IntoSystemConfigs, OnEnter, Query, Res, ResMut, Resource, Transform, Vec3,
+    With, Without,
+};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use crate::{Height, MaterialHandles, MeshHandles};
 
 #[derive(Component)]
 pub struct Player;
@@ -21,7 +26,16 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup).add_systems(Update, (jump, drag_indicator)).add_systems(FixedUpdate, increase_height);
+        app.insert_resource(MaxDrag(120.0))
+            .add_systems(OnEnter(GameState::InGame), create_player)
+            .add_systems(
+                Update,
+                (jump, drag_indicator).run_if(in_state(GameState::InGame)),
+            )
+            .add_systems(
+                FixedUpdate,
+                increase_height.run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
@@ -42,7 +56,7 @@ pub struct PlayerBundle {
 
 impl PlayerBundle {
     pub fn new(
-        mesh_handle: Handle<Mesh>,
+        mesh_handle: Mesh2dHandle,
         material_handle: Handle<ColorMaterial>,
         pos: Vec2,
         size: f32,
@@ -58,7 +72,7 @@ impl PlayerBundle {
             friction: Friction::new(0.4),
             restitution: Restitution::new(0.5),
             material_mesh: MaterialMesh2dBundle {
-                mesh: Mesh2dHandle::from(mesh_handle),
+                mesh: mesh_handle,
                 material: material_handle,
                 transform: Transform::from_xyz(pos.x, pos.y, -1.).with_scale(Vec3::splat(size)),
                 ..default()
@@ -68,20 +82,17 @@ impl PlayerBundle {
     }
 }
 
-fn setup(
+fn create_player(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mesh_handles: Res<MeshHandles>,
+    material_handles: Res<MaterialHandles>,
 ) {
-    let yellow = materials.add(Color::srgb(3., 3., 0.));
-
     let num_rows = 9;
     let num_cols = num_rows;
     let size = 2.;
     let gap: f32 = size / 2.;
     let d_gap = (size * size + gap * gap).sqrt();
     let compliance = 0.00015 / size;
-    let rectangle = meshes.add(Rectangle::new(2., 2.));
 
     let mut rows: Vec<Vec<Entity>> = Vec::with_capacity(num_rows);
     for r in 0..num_rows {
@@ -92,8 +103,8 @@ fn setup(
             row.push(
                 commands
                     .spawn(PlayerBundle::new(
-                        rectangle.clone(),
-                        yellow.clone(),
+                        mesh_handles.rectangle_2.clone(),
+                        material_handles.yellow.clone(),
                         Vec2::new(x, y),
                         size,
                     ))
@@ -175,12 +186,18 @@ fn setup(
             }
         }
     }
-    
-    commands.insert_resource(MaxDrag(120.0));
 }
 
 fn jump(
-    mut query_jumper: Query<(&mut ExternalImpulse, &mut ExternalAngularImpulse, &mut ExternalForce, &ColliderMassProperties), With<Player>>,
+    mut query_jumper: Query<
+        (
+            &mut ExternalImpulse,
+            &mut ExternalAngularImpulse,
+            &mut ExternalForce,
+            &ColliderMassProperties,
+        ),
+        With<Player>,
+    >,
     mut mouse_drag_event: EventReader<Drag>,
     max_drag: Res<MaxDrag>,
 ) {
@@ -193,7 +210,7 @@ fn jump(
                     y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
                 };
                 impulse.set_impulse(impulse_vec);
-                
+
                 angular_impulse.set_impulse(drag.x * 40.);
             }
         } else {

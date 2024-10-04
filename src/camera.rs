@@ -1,17 +1,22 @@
-use crate::{Height, MovementState, WORLD_SIZE};
+use crate::{GameState, Height, MovementState, WORLD_SIZE};
 use bevy::app::{App, Plugin, Startup};
 use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::math::Vec2;
-use bevy::prelude::{default, Camera, Camera2dBundle, Commands, FixedUpdate, Query, Res, With};
+use bevy::prelude::{
+    default, in_state, Camera, Camera2dBundle, Commands, FixedUpdate, IntoSystemConfigs, Query,
+    Res, With,
+};
 use bevy::render::camera::ScalingMode;
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup)
-            .add_systems(FixedUpdate, camera_scroll);
+        app.add_systems(Startup, setup).add_systems(
+            FixedUpdate,
+            camera_scroll.run_if(in_state(GameState::InGame)),
+        );
     }
 }
 
