@@ -190,8 +190,12 @@ fn create_player(
 fn remove_player(
     mut commands: Commands,
     query_player: Query<Entity, With<Player>>,
+    query_drag_indicator: Query<Entity, With<DragIndicator>>,
 ) {
     for entity in query_player.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in query_drag_indicator.iter() {
         commands.entity(entity).despawn();
     }
 }
