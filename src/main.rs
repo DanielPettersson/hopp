@@ -79,6 +79,11 @@ fn main() {
             FixedUpdate,
             increase_height.run_if(in_state(GameState::InGame)),
         )
+        .add_systems(OnEnter(GameState::InGame), reset_game)
+        .add_systems(
+            Update,
+            restart_game.run_if(in_state(GameState::GameOver)),
+        )
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_resource(Height(0.0))
@@ -103,5 +108,19 @@ fn setup(
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
     if height.0 > 50. {
         height.0 += time.delta_seconds() * 15.0;
+    }
+}
+
+fn reset_game(mut height: ResMut<Height>) {
+    height.0 = 0.;
+}
+
+fn restart_game(
+    mut next_state: ResMut<NextState<GameState>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    buttons: Res<ButtonInput<MouseButton>>,
+) {
+    if keys.get_just_pressed().len() > 0 || buttons.get_just_pressed().len() > 0 {
+        next_state.set(GameState::InGame);
     }
 }

@@ -1,15 +1,15 @@
-use std::cmp::Ordering;
 use crate::drag::Drag;
-use crate::{GameState, Height, MaterialHandles, MeshHandles};
+use crate::score::Score;
+use crate::{GameState, Height, MaterialHandles, MeshHandles, WORLD_SIZE};
 use avian2d::prelude::{
     AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse,
     ExternalForce, ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody,
 };
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
-use bevy::prelude::{default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, EventWriter, FixedUpdate, Handle, IntoSystemConfigs, OnEnter, Query, Res, ResMut, Resource, Transform, Vec3, With, Without};
+use bevy::prelude::{default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, FixedUpdate, Handle, IntoSystemConfigs, NextState, OnEnter, OnExit, Query, Res, ResMut, Resource, Transform, Vec3, With, Without};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
-use crate::score::Score;
+use std::cmp::Ordering;
 
 #[derive(Component)]
 pub struct Player;
@@ -26,13 +26,14 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MaxDrag(120.0))
             .add_systems(OnEnter(GameState::InGame), create_player)
+            .add_systems(OnExit(GameState::InGame), remove_player)
             .add_systems(
                 Update,
                 (jump, drag_indicator).run_if(in_state(GameState::InGame)),
             )
             .add_systems(
                 FixedUpdate,
-                increase_height.run_if(in_state(GameState::InGame)),
+                player_height.run_if(in_state(GameState::InGame)),
             );
     }
 }
@@ -186,8 +187,17 @@ fn create_player(
     }
 }
 
+fn remove_player(
+    mut commands: Commands,
+    query_player: Query<Entity, With<Player>>,
+) {
+    for entity in query_player.iter() {
+        commands.entity(entity).despawn();
+    }
+}
+
 fn jump(
-    mut query_jumper: Query<
+    mut query_player: Query<
         (
             &mut ExternalImpulse,
             &mut ExternalAngularImpulse,
@@ -201,7 +211,7 @@ fn jump(
 ) {
     for drag in mouse_drag_event.read() {
         if drag.done {
-            for (mut impulse, mut angular_impulse, _, mass_props) in query_jumper.iter_mut() {
+            for (mut impulse, mut angular_impulse, _, mass_props) in query_player.iter_mut() {
                 let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
                 let impulse_vec = Vec2 {
                     x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
@@ -212,7 +222,7 @@ fn jump(
                 angular_impulse.set_impulse(drag.x * 40.);
             }
         } else {
-            for (_, _, mut force, mass_props) in query_jumper.iter_mut() {
+            for (_, _, mut force, mass_props) in query_player.iter_mut() {
                 let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
                 let force_vec = Vec2 {
                     x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * 30.,
@@ -277,14 +287,18 @@ fn drag_indicator(
     }
 }
 
-fn increase_height(mut height: ResMut<Height>, mut score: ResMut<Score>, query_player: Query<&Transform, With<Player>>) {
-    let max_y = query_player.iter().map(|t| t.translation.y).max_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal)).unwrap_or(0.);
+fn player_height(mut next_state: ResMut<NextState<GameState>>, mut height: ResMut<Height>, mut score: ResMut<Score>, query_player: Query<&Transform, With<Player>>) {
+    let player_max_y = query_player.iter().map(|t| t.translation.y).max_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal)).unwrap_or(0.);
     
-    if max_y > height.0 {
-        height.0 = max_y;
+    if player_max_y > height.0 {
+        height.0 = player_max_y;
     }
 
-    if max_y as u32 > score.0 {
-        score.0 = max_y as u32;        
+    if player_max_y as u32 > score.0 {
+        score.0 = player_max_y as u32;        
+    }
+    
+    if player_max_y < height.0 - WORLD_SIZE / 2. {
+        next_state.set(GameState::GameOver);
     }
 }

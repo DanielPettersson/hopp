@@ -3,7 +3,7 @@ use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, in_state, Bundle, Commands, Component, Entity, FixedUpdate, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Vec2, With};
+use bevy::prelude::{default, in_state, Bundle, Commands, Component, Entity, FixedUpdate, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Vec2, With};
 use rand::Rng;
 use std::ops::{Deref, DerefMut};
 
@@ -15,6 +15,7 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HighestPlatformPos::default())
             .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
+            .add_systems(OnExit(GameState::InGame), remove_all_platforms)
             .add_systems(FixedUpdate, add_platforms.run_if(in_state(GameState::InGame)))
             .add_systems(FixedUpdate, remove_platforms.run_if(in_state(GameState::InGame)));
     }
@@ -86,7 +87,7 @@ fn create_initial_platforms(mut commands: Commands, images: Res<ImageAssets>, mu
         images.platforms[0].clone(),
         PLATFORM_TEXTURE_SIZE * 2.,
         20.,
-        Vec2::new(-100., -75.),
+        Vec2::new(-80., -75.),
     ));
 
     commands.spawn(PlatformBundle::new(
@@ -97,6 +98,15 @@ fn create_initial_platforms(mut commands: Commands, images: Res<ImageAssets>, mu
     ));
     
     highest_platform_pos.0 = Vec2::new(100., 0.);
+}
+
+fn remove_all_platforms(
+    mut commands: Commands,
+    query_platforms: Query<Entity, With<Platform>>,
+) {
+    for entity in query_platforms.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn add_platforms(

@@ -1,16 +1,15 @@
-use crate::{FontAssets, GameState, Height, WORLD_SIZE};
+use crate::{FontAssets, GameState, WORLD_SIZE};
 use bevy::app::App;
-use bevy::math::Vec2;
-use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Event, EventReader, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
 use bevy::sprite::Anchor;
-use crate::drag::Drag;
 
 pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Score(0))
-            .add_systems(OnEnter(GameState::InGame), initialize_score_text)
+            .add_systems(OnEnter(GameState::InGame), create_score_text)
+            .add_systems(OnExit(GameState::InGame), remove_score_text)
             .add_systems(Update, scroll_score.run_if(in_state(GameState::InGame)))
             .add_systems(
                 FixedUpdate,
@@ -25,7 +24,7 @@ pub struct Score(pub u32);
 #[derive(Component)]
 pub struct ScoreText;
 
-fn initialize_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>) {
+fn create_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>) {
     score.0 = 0;
     commands.spawn((
         Text2dBundle {
@@ -48,6 +47,15 @@ fn initialize_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut sco
         },
         ScoreText,
     ));
+}
+
+fn remove_score_text(
+    mut commands: Commands,
+    query_score_text: Query<Entity, With<ScoreText>>,
+) {
+    for entity in query_score_text.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn scroll_score(
