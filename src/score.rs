@@ -1,6 +1,7 @@
-use crate::{FontAssets, GameState, WORLD_SIZE};
+use crate::{FontAssets, GameState};
 use bevy::app::App;
-use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::math::Vec2;
+use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, With};
 use bevy::sprite::Anchor;
 
 pub struct ScorePlugin;
@@ -24,8 +25,13 @@ pub struct Score(pub u32);
 #[derive(Component)]
 pub struct ScoreText;
 
-fn create_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>) {
+fn create_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>, query_camera: Query<(&Camera, &GlobalTransform)>,) {
     score.0 = 0;
+    let (camera, camera_transform) = query_camera.single();
+    let score_pos = camera
+        .viewport_to_world_2d(camera_transform, Vec2::new(10., 10.))
+        .unwrap_or(Vec2::ZERO);
+    
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
@@ -38,11 +44,7 @@ fn create_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: 
             )
             .with_justify(JustifyText::Left),
             text_anchor: Anchor::TopLeft,
-            transform: Transform::from_translation(Vec3::new(
-                -WORLD_SIZE / 2. + 10.,
-                WORLD_SIZE / 2.,
-                2.0,
-            )),
+            transform: Transform::from_translation(score_pos.extend(10.)),
             ..default()
         },
         ScoreText,
@@ -59,11 +61,16 @@ fn remove_score_text(
 }
 
 fn scroll_score(
-    query_camera: Query<&GlobalTransform, With<Camera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     mut score_query: Query<&mut Transform, With<ScoreText>>,
 ) {
+    let (camera, camera_transform) = query_camera.single();
+    let score_pos = camera
+        .viewport_to_world_2d(camera_transform, Vec2::new(10., 10.))
+        .unwrap_or(Vec2::ZERO);
+    
     for mut transform in score_query.iter_mut() {
-        transform.translation.y = query_camera.single().translation().y + WORLD_SIZE / 2. - 10.;
+        transform.translation = score_pos.extend(10.);
     }
 }
 

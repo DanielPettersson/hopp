@@ -44,6 +44,7 @@ struct FontAssets {
 #[derive(Resource)]
 struct MaterialHandles {
     red: Handle<ColorMaterial>,
+    red_transparent: Handle<ColorMaterial>,
     yellow: Handle<ColorMaterial>,
 }
 
@@ -97,6 +98,7 @@ fn setup(
 ) {
     commands.insert_resource(MaterialHandles {
         red: materials.add(Color::srgb(1., 0., 0.)),
+        red_transparent: materials.add(Color::srgba(1., 0., 0., 0.5)),
         yellow: materials.add(Color::srgb(3., 3., 0.)),
     });
     commands.insert_resource(MeshHandles {

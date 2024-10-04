@@ -98,7 +98,7 @@ fn create_player(
         let mut row = Vec::with_capacity(num_cols);
         for c in 0..num_cols {
             let x = c as f32 * (size + gap) + size / 2.;
-            let y = r as f32 * (size + gap) + size / 2. - num_rows as f32 * (size + gap);
+            let y = r as f32 * (size + gap) + size / 2. - 160.;
             row.push(
                 commands
                     .spawn(PlayerBundle::new(
@@ -294,7 +294,7 @@ fn drag_indicator(
 fn player_height(mut next_state: ResMut<NextState<GameState>>, mut height: ResMut<Height>, mut score: ResMut<Score>, query_player: Query<&Transform, With<Player>>) {
     let player_max_y = query_player.iter().map(|t| t.translation.y).max_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal)).unwrap_or(0.);
     
-    if player_max_y > height.0 {
+    if player_max_y > height.0 + 50. {
         height.0 = player_max_y;
     }
 
