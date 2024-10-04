@@ -116,16 +116,18 @@ fn add_platforms(
     mut highest_platform_pos: ResMut<HighestPlatformPos>,
 ) {
     if height.0 > highest_platform_pos.y - WORLD_SIZE / 2. {
-        highest_platform_pos.y += 100.;
+        let mut rng = rand::thread_rng();
+        
+        highest_platform_pos.y += rng.gen_range(65.0..85.0);
         let mut new_x = highest_platform_pos.x;
         let mut diff_x = 0.;
-        while !(50. ..200.).contains(&diff_x) {
-            new_x = rand::random::<f32>() * 300. - 150.;
+        while !(75. ..190.).contains(&diff_x) {
+            new_x = rng.gen_range(-150.0..150.);
             diff_x = (new_x - highest_platform_pos.x).abs();
         }
         highest_platform_pos.x = new_x;
 
-        let mut rng = rand::thread_rng();
+        
         commands.spawn(PlatformBundle::new(
             images.platforms[rng.gen_range(0..images.platforms.len())].clone(),
             92.,
