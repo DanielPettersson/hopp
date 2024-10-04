@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use crate::drag::Drag;
 use crate::{GameState, Height, MaterialHandles, MeshHandles};
 use avian2d::prelude::{
@@ -6,12 +7,9 @@ use avian2d::prelude::{
 };
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
-use bevy::prelude::{
-    default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader,
-    FixedUpdate, Handle, IntoSystemConfigs, OnEnter, Query, Res, ResMut, Resource, Transform, Vec3,
-    With, Without,
-};
+use bevy::prelude::{default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, EventWriter, FixedUpdate, Handle, IntoSystemConfigs, OnEnter, Query, Res, ResMut, Resource, Transform, Vec3, With, Without};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use crate::score::Score;
 
 #[derive(Component)]
 pub struct Player;
@@ -279,10 +277,14 @@ fn drag_indicator(
     }
 }
 
-fn increase_height(mut height: ResMut<Height>, query_player: Query<&Transform, With<Player>>) {
-    for transform in query_player.iter() {
-        if transform.translation.y > height.0 {
-            height.0 = transform.translation.y;
-        }
+fn increase_height(mut height: ResMut<Height>, mut score: ResMut<Score>, query_player: Query<&Transform, With<Player>>) {
+    let max_y = query_player.iter().map(|t| t.translation.y).max_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal)).unwrap_or(0.);
+    
+    if max_y > height.0 {
+        height.0 = max_y;
+    }
+
+    if max_y as u32 > score.0 {
+        score.0 = max_y as u32;        
     }
 }

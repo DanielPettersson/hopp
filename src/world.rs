@@ -93,7 +93,7 @@ fn create_initial_platforms(mut commands: Commands, images: Res<ImageAssets>, mu
         images.platforms[0].clone(),
         PLATFORM_TEXTURE_SIZE * 2.,
         20.,
-        Vec2::new(100., 0.),
+        Vec2::new(120., 0.),
     ));
     
     highest_platform_pos.0 = Vec2::new(100., 0.);

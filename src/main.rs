@@ -130,6 +130,6 @@ fn update_movement(
 
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
     if height.0 > 50. {
-        height.0 += time.delta_seconds() * 10.0;
+        height.0 += time.delta_seconds() * 15.0;
     }
 }

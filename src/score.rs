@@ -1,26 +1,36 @@
 use crate::{FontAssets, GameState, Height, WORLD_SIZE};
 use bevy::app::App;
-use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, Plugin, Query, Res, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::math::Vec2;
+use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Event, EventReader, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
 use bevy::sprite::Anchor;
+use crate::drag::Drag;
 
 pub struct ScorePlugin;
 
 impl Plugin for ScorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::InGame), create_score)
+        app.insert_resource(Score(0))
+            .add_systems(OnEnter(GameState::InGame), initialize_score_text)
             .add_systems(Update, scroll_score.run_if(in_state(GameState::InGame)))
-            .add_systems(FixedUpdate, update_score.run_if(in_state(GameState::InGame)));
+            .add_systems(
+                FixedUpdate,
+                update_score.run_if(in_state(GameState::InGame)),
+            );
     }
 }
 
-#[derive(Component)]
-pub struct Score;
+#[derive(Resource)]
+pub struct Score(pub u32);
 
-fn create_score(mut commands: Commands, fonts: Res<FontAssets>) {
+#[derive(Component)]
+pub struct ScoreText;
+
+fn initialize_score_text(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>) {
+    score.0 = 0;
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                "0",
+                format!("{}", score.0),
                 TextStyle {
                     font: fonts.segmental.clone(),
                     font_size: 30.0,
@@ -36,13 +46,13 @@ fn create_score(mut commands: Commands, fonts: Res<FontAssets>) {
             )),
             ..default()
         },
-        Score,
+        ScoreText,
     ));
 }
 
 fn scroll_score(
     query_camera: Query<&GlobalTransform, With<Camera>>,
-    mut score_query: Query<&mut Transform, With<Score>>,
+    mut score_query: Query<&mut Transform, With<ScoreText>>,
 ) {
     for mut transform in score_query.iter_mut() {
         transform.translation.y = query_camera.single().translation().y + WORLD_SIZE / 2. - 10.;
@@ -50,14 +60,14 @@ fn scroll_score(
 }
 
 fn update_score(
-    mut score: Local<u32>,
-    height: Res<Height>,
-    mut score_query: Query<&mut Text, With<Score>>,
+    mut old_score: Local<u32>,
+    score: Res<Score>,
+    mut score_query: Query<&mut Text, With<ScoreText>>,
 ) {
-    if *score < height.0 as u32 {
-        *score = height.0 as u32;
+    if *old_score != score.0 {
+        *old_score = score.0;
         for mut text in score_query.iter_mut() {
-            text.sections[0].value = format!("{}", *score);
+            text.sections[0].value = format!("{}", score.0);
         }
     }
 }
