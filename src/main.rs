@@ -53,21 +53,6 @@ struct MeshHandles {
     rectangle_2: Mesh2dHandle,
 }
 
-#[derive(Component)]
-struct MovementState {
-    position: Vec2,
-    old_position: Vec2,
-}
-
-impl MovementState {
-    fn new(position: Vec2) -> Self {
-        Self {
-            position,
-            old_position: position,
-        }
-    }
-}
-
 #[derive(Resource)]
 struct Height(f32);
 
@@ -90,7 +75,6 @@ fn main() {
                 .load_collection::<FontAssets>(),
         )
         .add_systems(Startup, setup)
-        .add_systems(Update, update_movement.run_if(in_state(GameState::InGame)))
         .add_systems(
             FixedUpdate,
             increase_height.run_if(in_state(GameState::InGame)),
@@ -114,18 +98,6 @@ fn setup(
         rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
         rectangle_2: Mesh2dHandle(meshes.add(Rectangle::new(2., 2.))),
     });
-}
-
-fn update_movement(
-    fixed_time: Res<Time<Fixed>>,
-    mut movement_query: Query<(&mut Transform, &MovementState)>,
-) {
-    for (mut transform, state) in movement_query.iter_mut() {
-        transform.translation = state
-            .old_position
-            .lerp(state.position, fixed_time.overstep_fraction())
-            .extend(transform.translation.z);
-    }
 }
 
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
