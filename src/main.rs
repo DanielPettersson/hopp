@@ -88,6 +88,7 @@ fn main() {
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_resource(Height(0.0))
+        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
         .run();
 }
 

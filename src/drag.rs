@@ -1,9 +1,10 @@
 use bevy::app::App;
+use bevy::input::mouse::MouseMotion;
 use bevy::input::ButtonInput;
 use bevy::math::Vec2;
 use bevy::prelude::{
-    Camera, Event, EventWriter, GlobalTransform, KeyCode, Local, MouseButton, Plugin, Query, Res,
-    Update, Vec3Swizzles, Window, With,
+    Event, EventReader, EventWriter, KeyCode, Local, MouseButton, Plugin, Query, Res, Update,
+    Window, With,
 };
 use bevy::window::PrimaryWindow;
 
@@ -55,46 +56,40 @@ fn keyboard_drag(
 
 fn mouse_drag(
     mouse_button: Res<ButtonInput<MouseButton>>,
-    query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
+    mut query_window: Query<&mut Window, With<PrimaryWindow>>,
     mut event_writer: EventWriter<Drag>,
-    mut drag_start: Local<Vec2>,
     mut drag_last: Local<Vec2>,
+    mut evr_motion: EventReader<MouseMotion>,
 ) {
-    if mouse_button.pressed(MouseButton::Left) || mouse_button.just_released(MouseButton::Left) {
-        let (camera, camera_transform) = query_camera.single();
-
-        let cursor_pos = query_window
-            .single()
-            .cursor_position()
-            .and_then(|cursor| camera.viewport_to_world_2d(camera_transform, cursor))
-            .map(|p| p - camera_transform.translation().xy());
+    if mouse_button.pressed(MouseButton::Left)
+        || mouse_button.just_released(MouseButton::Left)
+        || !evr_motion.is_empty()
+    {
+        let mut window = query_window.single_mut();
+        let mouse_move: Vec2 = evr_motion.read().map(|e| e.delta).sum();
 
         if mouse_button.just_pressed(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                *drag_start = pos;
-                *drag_last = pos;
-                event_writer.send(Drag {
-                    start: pos,
-                    end: pos,
-                    done: false,
-                });
-            }
+            *drag_last = Vec2::ZERO;
+            event_writer.send(Drag {
+                start: Vec2::ZERO,
+                end: Vec2::ZERO,
+                done: false,
+            });
+            window.cursor.visible = false;
         } else if mouse_button.pressed(MouseButton::Left) {
-            if let Some(pos) = cursor_pos {
-                *drag_last = pos;
-                event_writer.send(Drag {
-                    start: *drag_start,
-                    end: pos,
-                    done: false,
-                });
-            }
+            *drag_last += Vec2::new(mouse_move.x, -mouse_move.y);
+            event_writer.send(Drag {
+                start: Vec2::ZERO,
+                end: *drag_last,
+                done: false,
+            });
         } else if mouse_button.just_released(MouseButton::Left) {
             event_writer.send(Drag {
-                start: *drag_start,
-                end: cursor_pos.unwrap_or(*drag_last),
+                start: Vec2::ZERO,
+                end: *drag_last,
                 done: true,
             });
+            window.cursor.visible = true;
         }
     }
 }

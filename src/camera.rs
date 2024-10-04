@@ -45,9 +45,7 @@ fn camera_scroll(
     }
 }
 
-fn reset_camera_position(
-    mut query_camera_movement: Query<&mut Transform, With<Camera>>
-) {
+fn reset_camera_position(mut query_camera_movement: Query<&mut Transform, With<Camera>>) {
     for mut transform in query_camera_movement.iter_mut() {
         *transform = Transform::default();
     }

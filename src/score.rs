@@ -95,7 +95,7 @@ fn update_score(
     }
 }
 
-fn create_game_over(mut commands: Commands, fonts: Res<FontAssets>, mut score: ResMut<Score>) {
+fn create_game_over(mut commands: Commands, fonts: Res<FontAssets>, score: Res<Score>) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
