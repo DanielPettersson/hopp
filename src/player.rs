@@ -1,6 +1,6 @@
 use crate::drag::Drag;
 use crate::score::Score;
-use crate::{GameState, Height, MaterialHandles, MeshHandles, WORLD_SIZE};
+use crate::{GameState, Height, MaterialHandles, MeshHandles, HALF_WORLD_SIZE};
 use avian2d::prelude::{
     AngularDamping, Collider, ColliderMassProperties, DistanceJoint, ExternalAngularImpulse,
     ExternalForce, ExternalImpulse, Friction, Joint, LinearDamping, Restitution, RigidBody,
@@ -301,21 +301,23 @@ fn player_height(
     mut score: ResMut<Score>,
     query_player: Query<&Transform, With<Player>>,
 ) {
-    let player_max_y = query_player
+    let player_pos = query_player
         .iter()
-        .map(|t| t.translation.y)
-        .max_by(|y1, y2| y1.partial_cmp(y2).unwrap_or(Ordering::Equal))
-        .unwrap_or(0.);
+        .map(|t| t.translation)
+        .max_by(|t1, t2| t1.y.partial_cmp(&t2.y).unwrap_or(Ordering::Equal))
+        .unwrap_or(Vec3::ZERO);
 
-    if player_max_y > height.0 + 50. {
-        height.0 = player_max_y;
+    if player_pos.y > height.0 + 50. {
+        height.0 = player_pos.y;
     }
 
-    if player_max_y as u32 > score.0 {
-        score.0 = player_max_y as u32;
+    if player_pos.y as u32 > score.0 {
+        score.0 = player_pos.y as u32;
     }
 
-    if player_max_y < height.0 - WORLD_SIZE / 2. {
+    if player_pos.y < height.0 - HALF_WORLD_SIZE
+        || !((-HALF_WORLD_SIZE - 50.)..(HALF_WORLD_SIZE + 50.)).contains(&player_pos.x)
+    {
         next_state.set(GameState::GameOver);
     }
 }

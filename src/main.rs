@@ -2,21 +2,24 @@ mod camera;
 mod drag;
 mod player;
 mod score;
-mod world;
+mod platforms;
+mod game_over_line;
 
 use crate::camera::CameraPlugin;
 use crate::drag::DragPlugin;
+use crate::platforms::PlatformsPlugin;
 use crate::player::PlayerPlugin;
 use crate::score::ScorePlugin;
-use crate::world::WorldPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::sprite::Mesh2dHandle;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
+use crate::game_over_line::GameOverLinePlugin;
 
 static WORLD_SIZE: f32 = 400.;
+static HALF_WORLD_SIZE: f32 = WORLD_SIZE / 2.;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
 enum GameState {
@@ -65,7 +68,8 @@ fn main() {
             DragPlugin,
             PlayerPlugin,
             CameraPlugin,
-            WorldPlugin,
+            PlatformsPlugin,
+            GameOverLinePlugin,
             ScorePlugin,
         ))
         .init_state::<GameState>()

@@ -1,35 +1,31 @@
-use crate::{GameState, Height, ImageAssets, MaterialHandles, MeshHandles, WORLD_SIZE};
+use crate::{GameState, Height, ImageAssets};
 use avian2d::collision::Collider;
 use avian2d::prelude::RigidBody;
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, in_state, Bundle, Camera, Commands, Component, Entity, FixedUpdate, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Update, Vec2, Vec3, Window, With};
-use bevy::sprite::MaterialMesh2dBundle;
+use bevy::prelude::{default, in_state, Bundle, Camera, Commands, Component, Entity, FixedUpdate, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Vec2, Vec3, Window, With};
 use bevy::window::PrimaryWindow;
 use rand::Rng;
 use std::ops::{Deref, DerefMut};
 
 static PLATFORM_TEXTURE_SIZE: f32 = 46.;
 
-pub struct WorldPlugin;
+pub struct PlatformsPlugin;
 
-impl Plugin for WorldPlugin {
+impl Plugin for PlatformsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HighestPlatformPos::default())
-            .add_systems(OnEnter(GameState::InGame), setup)
-            .add_systems(OnExit(GameState::InGame), cleanup)
+            .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
+            .add_systems(OnExit(GameState::InGame), remove_all_platforms)
             .add_systems(
                 FixedUpdate,
                 (add_platforms, remove_platforms).run_if(in_state(GameState::InGame)),
-            ).add_systems(Update, scroll_game_over_line.run_if(in_state(GameState::InGame)));
+            );
     }
 }
 
 #[derive(Component)]
 struct Platform;
-
-#[derive(Component)]
-struct GameOverLine;
 
 #[derive(Resource, Default)]
 
@@ -83,11 +79,9 @@ impl PlatformBundle {
     }
 }
 
-fn setup(
+fn create_initial_platforms(
     mut commands: Commands,
     images: Res<ImageAssets>,
-    mesh_handles: Res<MeshHandles>,
-    material_handles: Res<MaterialHandles>,
     mut highest_platform_pos: ResMut<HighestPlatformPos>,
 ) {
     commands.spawn(PlatformBundle::new(
@@ -98,44 +92,28 @@ fn setup(
     ));
 
     highest_platform_pos.0 = Vec2::new(0., -180.);
-
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: mesh_handles.rectangle.clone(),
-            material: material_handles.red_transparent.clone(),
-            transform: Transform::from_xyz(0., -WORLD_SIZE / 2. - 6., 2.).with_scale(Vec3::new(10000., 10., 1.)),
-            ..default()
-        },
-        GameOverLine,
-    ));
 }
 
-fn cleanup(mut commands: Commands, query_platforms: Query<Entity, With<Platform>>, query_game_over_line: Query<Entity, With<GameOverLine>>) {
+fn remove_all_platforms(mut commands: Commands, query_platforms: Query<Entity, With<Platform>>) {
     for entity in query_platforms.iter() {
         commands.entity(entity).despawn();
-    }
-
-    for entity in query_game_over_line.iter() {
-        commands.entity(entity).despawn();
-    }
-}
-
-fn scroll_game_over_line(
-    query_camera: Query<&GlobalTransform, With<Camera>>,
-    mut game_over_line_query: Query<&mut Transform, With<GameOverLine>>,
-) {
-    for mut transform in game_over_line_query.iter_mut() {
-        transform.translation.y = query_camera.single().translation().y - WORLD_SIZE / 2. - transform.scale.y - 1.;
     }
 }
 
 fn add_platforms(
     mut commands: Commands,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
     height: Res<Height>,
     mut highest_platform_pos: ResMut<HighestPlatformPos>,
 ) {
-    if height.0 > highest_platform_pos.y - WORLD_SIZE / 2. {
+    let (camera, camera_transform) = query_camera.single();
+    let window_top = camera
+        .viewport_to_world_2d(camera_transform, Vec2::ZERO)
+        .unwrap_or(Vec2::ZERO)
+        .y;
+    
+    if height.0 > highest_platform_pos.y - window_top {
         let mut rng = rand::thread_rng();
 
         highest_platform_pos.y += rng.gen_range(65.0..85.0);
