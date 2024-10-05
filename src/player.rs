@@ -107,7 +107,7 @@ fn create_player(
                 commands
                     .spawn(PlayerBundle::new(
                         mesh_handles.rectangle_2.clone(),
-                        material_handles.yellow.clone(),
+                        material_handles.bright_yellow.clone(),
                         Vec2::new(x, y),
                         size,
                     ))

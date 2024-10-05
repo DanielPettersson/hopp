@@ -4,6 +4,7 @@ mod player;
 mod score;
 mod platforms;
 mod game_over_line;
+mod clouds;
 
 use crate::camera::CameraPlugin;
 use crate::drag::DragPlugin;
@@ -16,6 +17,7 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
+use crate::clouds::CloudsPlugin;
 use crate::game_over_line::GameOverLinePlugin;
 
 static WORLD_SIZE: f32 = 400.;
@@ -36,6 +38,11 @@ struct ImageAssets {
         collection(typed)
     )]
     platforms: Vec<Handle<Image>>,
+    #[asset(
+        paths("images/cloud1.png", "images/cloud2.png", "images/cloud3.png", "images/cloud4.png", "images/cloud5.png"),
+        collection(typed)
+    )]
+    clouds: Vec<Handle<Image>>,
 }
 
 #[derive(AssetCollection, Resource)]
@@ -48,7 +55,7 @@ struct FontAssets {
 struct MaterialHandles {
     red: Handle<ColorMaterial>,
     red_transparent: Handle<ColorMaterial>,
-    yellow: Handle<ColorMaterial>,
+    bright_yellow: Handle<ColorMaterial>,
 }
 
 #[derive(Resource)]
@@ -71,6 +78,7 @@ fn main() {
             PlatformsPlugin,
             GameOverLinePlugin,
             ScorePlugin,
+            CloudsPlugin,
         ))
         .init_state::<GameState>()
         .add_loading_state(
@@ -92,7 +100,7 @@ fn main() {
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_resource(Height(0.0))
-        .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 1.0)))
+        .insert_resource(ClearColor(Color::srgb(0.46, 0.58, 1.0)))
         .run();
 }
 
@@ -104,7 +112,7 @@ fn setup(
     commands.insert_resource(MaterialHandles {
         red: materials.add(Color::srgb(1., 0., 0.)),
         red_transparent: materials.add(Color::srgba(1., 0., 0., 0.5)),
-        yellow: materials.add(Color::srgb(3., 3., 0.)),
+        bright_yellow: materials.add(Color::srgb(3., 3., 0.)),
     });
     commands.insert_resource(MeshHandles {
         rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
