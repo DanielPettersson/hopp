@@ -89,7 +89,7 @@ fn add_initial_clouds(
                 rng.gen_range(window_bottom_right.y..window_top_left.y),
                 -10.,
             ),
-            rng.gen_range(20. ..30.),
+            rng.gen_range(15. ..20.),
         ));
     }
 }

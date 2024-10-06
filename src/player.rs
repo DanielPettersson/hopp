@@ -10,35 +10,46 @@ use bevy::math::{Quat, Vec2};
 use bevy::prelude::{
     default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader,
     FixedUpdate, Handle, IntoSystemConfigs, NextState, OnEnter, OnExit, Query, Res, ResMut,
-    Resource, Transform, Vec3, With, Without,
+    Resource, Time, Timer, Transform, Vec3, With, Without,
 };
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::time::TimerMode;
 use std::cmp::Ordering;
+use std::time::Duration;
 
 #[derive(Component)]
 pub struct Player;
+
+#[derive(Component)]
+pub struct InnerPlayer;
 
 #[derive(Component)]
 struct DragIndicator;
 
 #[derive(Resource)]
 struct MaxDrag(f32);
+#[derive(Resource)]
+struct JumpTimer(Timer);
 
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MaxDrag(120.0))
-            .add_systems(OnEnter(GameState::InGame), create_player)
-            .add_systems(OnExit(GameState::InGame), remove_player)
-            .add_systems(
-                Update,
-                (jump, drag_indicator).run_if(in_state(GameState::InGame)),
-            )
-            .add_systems(
-                FixedUpdate,
-                player_height.run_if(in_state(GameState::InGame)),
-            );
+        app.insert_resource(JumpTimer(Timer::new(
+            Duration::from_millis(700),
+            TimerMode::Once,
+        )))
+        .insert_resource(MaxDrag(120.0))
+        .add_systems(OnEnter(GameState::InGame), create_player)
+        .add_systems(OnExit(GameState::InGame), remove_player)
+        .add_systems(
+            Update,
+            (jump, drag_indicator).run_if(in_state(GameState::InGame)),
+        )
+        .add_systems(
+            FixedUpdate,
+            (player_height, light_up_player).run_if(in_state(GameState::InGame)),
+        );
     }
 }
 
@@ -61,7 +72,7 @@ impl PlayerBundle {
     pub fn new(
         mesh_handle: Mesh2dHandle,
         material_handle: Handle<ColorMaterial>,
-        pos: Vec2,
+        pos: Vec3,
         size: f32,
     ) -> Self {
         PlayerBundle {
@@ -77,7 +88,7 @@ impl PlayerBundle {
             material_mesh: MaterialMesh2dBundle {
                 mesh: mesh_handle,
                 material: material_handle,
-                transform: Transform::from_xyz(pos.x, pos.y, -1.).with_scale(Vec3::splat(size)),
+                transform: Transform::from_translation(pos).with_scale(Vec3::splat(size)),
                 ..default()
             },
             player: Player,
@@ -89,7 +100,10 @@ fn create_player(
     mut commands: Commands,
     mesh_handles: Res<MeshHandles>,
     material_handles: Res<MaterialHandles>,
+    mut jump_timer: ResMut<JumpTimer>,
 ) {
+    jump_timer.0.reset();
+
     let num_rows = 9;
     let num_cols = num_rows;
     let size = 2.;
@@ -101,18 +115,26 @@ fn create_player(
     for r in 0..num_rows {
         let mut row = Vec::with_capacity(num_cols);
         for c in 0..num_cols {
+            let edge = r == 0 || r == num_rows - 1 || c == 0 || c == num_cols - 1;
             let x = c as f32 * (size + gap) + size / 2.;
             let y = r as f32 * (size + gap) + size / 2. - 160.;
-            row.push(
-                commands
-                    .spawn(PlayerBundle::new(
-                        mesh_handles.rectangle_2.clone(),
-                        material_handles.bright_yellow.clone(),
-                        Vec2::new(x, y),
-                        size,
-                    ))
-                    .id(),
+
+            let player_bundle = PlayerBundle::new(
+                mesh_handles.rectangle_2.clone(),
+                if edge {
+                    material_handles.black.clone()
+                } else {
+                    material_handles.red.clone()
+                },
+                Vec3::new(x, y, if edge { 0. } else { -1. }),
+                size,
             );
+
+            if edge {
+                row.push(commands.spawn(player_bundle).id());
+            } else {
+                row.push(commands.spawn((player_bundle, InnerPlayer)).id());
+            }
         }
         rows.push(row);
     }
@@ -216,27 +238,33 @@ fn jump(
     >,
     mut mouse_drag_event: EventReader<Drag>,
     max_drag: Res<MaxDrag>,
+    mut jump_timer: ResMut<JumpTimer>,
+    time: Res<Time>,
 ) {
+    jump_timer.0.tick(time.delta());
     for drag in mouse_drag_event.read() {
-        if drag.done {
-            for (mut impulse, mut angular_impulse, _, mass_props) in query_player.iter_mut() {
-                let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
-                let impulse_vec = Vec2 {
-                    x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
-                    y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
-                };
-                impulse.set_impulse(impulse_vec);
+        if jump_timer.0.finished() {
+            if drag.done {
+                for (mut impulse, mut angular_impulse, _, mass_props) in query_player.iter_mut() {
+                    let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
+                    let impulse_vec = Vec2 {
+                        x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * -30.,
+                        y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * -60.,
+                    };
+                    impulse.set_impulse(impulse_vec);
 
-                angular_impulse.set_impulse(drag.x * 40.);
-            }
-        } else {
-            for (_, _, mut force, mass_props) in query_player.iter_mut() {
-                let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
-                let force_vec = Vec2 {
-                    x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * 30.,
-                    y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * 60.,
-                };
-                force.set_force(force_vec);
+                    angular_impulse.set_impulse(drag.x * 40.);
+                }
+                jump_timer.0.reset();
+            } else {
+                for (_, _, mut force, mass_props) in query_player.iter_mut() {
+                    let drag = (drag.end - drag.start).clamp_length_max(max_drag.0);
+                    let force_vec = Vec2 {
+                        x: drag.x.signum() * drag.x.abs().sqrt() * mass_props.mass.0 * 30.,
+                        y: drag.y.signum() * drag.y.abs().sqrt() * mass_props.mass.0 * 60.,
+                    };
+                    force.set_force(force_vec);
+                }
             }
         }
     }
@@ -319,5 +347,19 @@ fn player_height(
         || !((-HALF_WORLD_SIZE - 50.)..(HALF_WORLD_SIZE + 50.)).contains(&player_pos.x)
     {
         next_state.set(GameState::GameOver);
+    }
+}
+
+fn light_up_player(
+    jump_timer: Res<JumpTimer>,
+    mut inner_player_query: Query<&mut Handle<ColorMaterial>, With<InnerPlayer>>,
+    material_handles: Res<MaterialHandles>,
+) {
+    for mut material_handle in inner_player_query.iter_mut() {
+        *material_handle = if jump_timer.0.finished() {
+            material_handles.bright_red.clone()
+        } else {
+            material_handles.red.clone()
+        };
     }
 }

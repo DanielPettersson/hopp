@@ -53,9 +53,10 @@ struct FontAssets {
 
 #[derive(Resource)]
 struct MaterialHandles {
+    black: Handle<ColorMaterial>,
     red: Handle<ColorMaterial>,
     red_transparent: Handle<ColorMaterial>,
-    bright_yellow: Handle<ColorMaterial>,
+    bright_red: Handle<ColorMaterial>,
 }
 
 #[derive(Resource)]
@@ -110,9 +111,10 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.insert_resource(MaterialHandles {
+        black: materials.add(Color::srgb(0.1, 0.1, 0.1)),
         red: materials.add(Color::srgb(1., 0., 0.)),
         red_transparent: materials.add(Color::srgba(1., 0., 0., 0.5)),
-        bright_yellow: materials.add(Color::srgb(3., 3., 0.)),
+        bright_red: materials.add(Color::srgb(4., 0., 0.)),
     });
     commands.insert_resource(MeshHandles {
         rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
