@@ -43,6 +43,9 @@ struct ImageAssets {
         collection(typed)
     )]
     clouds: Vec<Handle<Image>>,
+    
+    #[asset(path = "images/bolt.png")]
+    bolt: Handle<Image>,
 }
 
 #[derive(AssetCollection, Resource)]

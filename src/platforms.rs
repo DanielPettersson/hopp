@@ -1,9 +1,13 @@
 use crate::{GameState, Height, ImageAssets};
 use avian2d::collision::Collider;
-use avian2d::prelude::RigidBody;
+use avian2d::prelude::{DistanceJoint, Joint, RigidBody};
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, in_state, Bundle, Camera, Commands, Component, Entity, FixedUpdate, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Transform, Vec2, Vec3, Window, With};
+use bevy::prelude::{
+    default, in_state, Bundle, Camera, Commands, Component, Entity, FixedUpdate, GlobalTransform,
+    Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Rect, Res, ResMut,
+    Resource, Sprite, SpriteBundle, Transform, Vec2, Vec3, Window, With,
+};
 use bevy::window::PrimaryWindow;
 use rand::Rng;
 use std::ops::{Deref, DerefMut};
@@ -26,6 +30,9 @@ impl Plugin for PlatformsPlugin {
 
 #[derive(Component)]
 struct Platform;
+
+#[derive(Component)]
+struct Bolt;
 
 #[derive(Resource, Default)]
 
@@ -55,9 +62,15 @@ struct PlatformBundle {
 }
 
 impl PlatformBundle {
-    fn new(texture: Handle<Image>, width: f32, height: f32, translation: Vec3) -> Self {
+    fn new(
+        texture: Handle<Image>,
+        width: f32,
+        height: f32,
+        translation: Vec3,
+        rigid_body: RigidBody,
+    ) -> Self {
         Self {
-            rigid_body: RigidBody::Static,
+            rigid_body,
             collider: Collider::rectangle(width, height),
             sprite: SpriteBundle {
                 sprite: Sprite {
@@ -79,6 +92,29 @@ impl PlatformBundle {
     }
 }
 
+#[derive(Bundle)]
+struct BoltBundle {
+    rigid_body: RigidBody,
+    collider: Collider,
+    sprite: SpriteBundle,
+    bolt: Bolt,
+}
+
+impl BoltBundle {
+    fn new(texture: Handle<Image>, translation: Vec3) -> Self {
+        Self {
+            rigid_body: RigidBody::Static,
+            collider: Collider::circle(5.),
+            sprite: SpriteBundle {
+                transform: Transform::from_translation(translation),
+                texture,
+                ..default()
+            },
+            bolt: Bolt,
+        }
+    }
+}
+
 fn create_initial_platforms(
     mut commands: Commands,
     images: Res<ImageAssets>,
@@ -89,13 +125,17 @@ fn create_initial_platforms(
         10000.,
         1000.,
         Vec3::new(0., -680., 10.),
+        RigidBody::Static,
     ));
 
     highest_platform_pos.0 = Vec2::new(0., -180.);
 }
 
-fn remove_all_platforms(mut commands: Commands, query_platforms: Query<Entity, With<Platform>>) {
+fn remove_all_platforms(mut commands: Commands, query_platforms: Query<Entity, With<Platform>>, query_bolts: Query<Entity, With<Bolt>>) {
     for entity in query_platforms.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in query_bolts.iter() {
         commands.entity(entity).despawn();
     }
 }
@@ -112,7 +152,7 @@ fn add_platforms(
         .viewport_to_world_2d(camera_transform, Vec2::ZERO)
         .unwrap_or(Vec2::ZERO)
         .y;
-    
+
     if height.0 > highest_platform_pos.y - window_top {
         let mut rng = rand::thread_rng();
 
@@ -125,12 +165,31 @@ fn add_platforms(
         }
         highest_platform_pos.x = new_x;
 
-        commands.spawn(PlatformBundle::new(
-            images.platforms[rng.gen_range(0..images.platforms.len())].clone(),
-            92.,
-            20.,
-            highest_platform_pos.extend(0.),
-        ));
+        let bolt = commands
+            .spawn(BoltBundle::new(
+                images.bolt.clone(),
+                highest_platform_pos.0.extend(0.) + Vec3::new(0., 50., 0.),
+            ))
+            .id();
+        let platform = commands
+            .spawn(PlatformBundle::new(
+                images.platforms[rng.gen_range(0..images.platforms.len())].clone(),
+                92.,
+                20.,
+                highest_platform_pos.extend(0.),
+                RigidBody::Dynamic,
+            ))
+            .id();
+        commands.spawn(
+            DistanceJoint::new(bolt, platform)
+                .with_local_anchor_2(Vec2::new(40., 0.))
+                .with_rest_length(64.),
+        );
+        commands.spawn(
+            DistanceJoint::new(bolt, platform)
+                .with_local_anchor_2(Vec2::new(-40., 0.))
+                .with_rest_length(64.),
+        );
     }
 }
 

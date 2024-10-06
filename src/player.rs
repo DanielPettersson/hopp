@@ -217,11 +217,15 @@ fn remove_player(
     mut commands: Commands,
     query_player: Query<Entity, With<Player>>,
     query_drag_indicator: Query<Entity, With<DragIndicator>>,
+    query_joints: Query<Entity, With<DistanceJoint>>
 ) {
     for entity in query_player.iter() {
         commands.entity(entity).despawn();
     }
     for entity in query_drag_indicator.iter() {
+        commands.entity(entity).despawn();
+    }
+    for entity in query_joints.iter() {
         commands.entity(entity).despawn();
     }
 }
