@@ -1,13 +1,15 @@
 mod camera;
+mod clouds;
 mod drag;
+mod game_over_line;
+mod platforms;
 mod player;
 mod score;
-mod platforms;
-mod game_over_line;
-mod clouds;
 
 use crate::camera::CameraPlugin;
+use crate::clouds::CloudsPlugin;
 use crate::drag::DragPlugin;
+use crate::game_over_line::GameOverLinePlugin;
 use crate::platforms::PlatformsPlugin;
 use crate::player::PlayerPlugin;
 use crate::score::ScorePlugin;
@@ -17,8 +19,6 @@ use bevy::sprite::Mesh2dHandle;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use crate::clouds::CloudsPlugin;
-use crate::game_over_line::GameOverLinePlugin;
 
 static WORLD_SIZE: f32 = 400.;
 static HALF_WORLD_SIZE: f32 = WORLD_SIZE / 2.;
@@ -39,11 +39,17 @@ struct ImageAssets {
     )]
     platforms: Vec<Handle<Image>>,
     #[asset(
-        paths("images/cloud1.png", "images/cloud2.png", "images/cloud3.png", "images/cloud4.png", "images/cloud5.png"),
+        paths(
+            "images/cloud1.png",
+            "images/cloud2.png",
+            "images/cloud3.png",
+            "images/cloud4.png",
+            "images/cloud5.png"
+        ),
         collection(typed)
     )]
     clouds: Vec<Handle<Image>>,
-    
+
     #[asset(path = "images/bolt.png")]
     bolt: Handle<Image>,
 }
@@ -97,10 +103,8 @@ fn main() {
             increase_height.run_if(in_state(GameState::InGame)),
         )
         .add_systems(OnEnter(GameState::InGame), reset_game)
-        .add_systems(
-            Update,
-            restart_game.run_if(in_state(GameState::GameOver)),
-        )
+        .add_systems(OnExit(GameState::InGame), cleanup_game)
+        .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
         .insert_resource(SubstepCount(6))
         .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
         .insert_resource(Height(0.0))
@@ -133,6 +137,12 @@ fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
 
 fn reset_game(mut height: ResMut<Height>) {
     height.0 = 0.;
+}
+
+fn cleanup_game(mut commands: Commands, query_joints: Query<Entity, With<DistanceJoint>>) {
+    for entity in query_joints.iter() {
+        commands.entity(entity).despawn();
+    }
 }
 
 fn restart_game(

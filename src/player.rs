@@ -7,11 +7,7 @@ use avian2d::prelude::{
 };
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
-use bevy::prelude::{
-    default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader,
-    FixedUpdate, Handle, IntoSystemConfigs, NextState, OnEnter, OnExit, Query, Res, ResMut,
-    Resource, Time, Timer, Transform, Vec3, With, Without,
-};
+use bevy::prelude::{default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader, FixedUpdate, Handle, IntoSystemConfigs, NextState, OnEnter, OnExit, Or, Query, Res, ResMut, Resource, Time, Timer, Transform, Vec3, With, Without};
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::time::TimerMode;
 use std::cmp::Ordering;
@@ -83,7 +79,7 @@ impl PlayerBundle {
             external_angular_impulse: ExternalAngularImpulse::new(0.).with_persistence(false),
             linear_damping: LinearDamping(0.1),
             angular_damping: AngularDamping(0.1),
-            friction: Friction::new(0.4),
+            friction: Friction::new(0.7),
             restitution: Restitution::new(0.5),
             material_mesh: MaterialMesh2dBundle {
                 mesh: mesh_handle,
@@ -95,6 +91,8 @@ impl PlayerBundle {
         }
     }
 }
+
+type WithPlayerOrDragIndicator = Or<(With<Player>, With<DragIndicator>)>;
 
 fn create_player(
     mut commands: Commands,
@@ -215,17 +213,9 @@ fn create_player(
 
 fn remove_player(
     mut commands: Commands,
-    query_player: Query<Entity, With<Player>>,
-    query_drag_indicator: Query<Entity, With<DragIndicator>>,
-    query_joints: Query<Entity, With<DistanceJoint>>
+    query_player: Query<Entity, WithPlayerOrDragIndicator>,
 ) {
     for entity in query_player.iter() {
-        commands.entity(entity).despawn();
-    }
-    for entity in query_drag_indicator.iter() {
-        commands.entity(entity).despawn();
-    }
-    for entity in query_joints.iter() {
         commands.entity(entity).despawn();
     }
 }
