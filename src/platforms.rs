@@ -8,7 +8,6 @@ use bevy::asset::Handle;
 use bevy::prelude::{default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Transform, Update, Vec2, Vec3, Vec3Swizzles, Window, With};
 use bevy::window::PrimaryWindow;
 use rand::Rng;
-use std::ops::{Deref, DerefMut};
 
 static PLATFORM_TEXTURE_SIZE: f32 = 46.;
 
@@ -16,7 +15,7 @@ pub struct PlatformsPlugin;
 
 impl Plugin for PlatformsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(HighestPlatformPos::default())
+        app.insert_resource(HighestPlatformInfo::default())
             .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
             .add_systems(OnExit(GameState::InGame), remove_all_platforms)
             .add_systems(
@@ -27,8 +26,9 @@ impl Plugin for PlatformsPlugin {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Default, PartialEq)]
 enum Platform {
+    #[default]
     Static,
     Hanging,
     Moving { velocity: f32, range: f32 },
@@ -46,16 +46,26 @@ impl Platform {
         }
     }
 
+    fn get_image_index(&self) -> usize {
+        match self {
+            Platform::Static => 0,
+            Platform::Hanging => 1,
+            Platform::Moving {
+                velocity: _,
+                range: _,
+            } => 2,
+        }
+    }
+
     fn spawn(
         &self,
         commands: &mut Commands,
-        platform_image_index: usize,
         images: &ImageAssets,
         pos: Vec2,
     ) {
         let platform = commands
             .spawn(PlatformBundle::new(
-                images.platforms[platform_image_index].clone(),
+                images.platforms[self.get_image_index()].clone(),
                 92.,
                 20.,
                 pos.extend(0.),
@@ -94,20 +104,9 @@ struct Rope;
 
 #[derive(Resource, Default)]
 
-struct HighestPlatformPos(Vec2);
-
-impl Deref for HighestPlatformPos {
-    type Target = Vec2;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for HighestPlatformPos {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
+struct HighestPlatformInfo {
+    pos: Vec2,
+    platform: Platform,
 }
 
 #[derive(Bundle)]
@@ -178,7 +177,7 @@ type WithPlatformOrBolt = Or<(With<Platform>, With<Bolt>)>;
 fn create_initial_platforms(
     mut commands: Commands,
     images: Res<ImageAssets>,
-    mut highest_platform_pos: ResMut<HighestPlatformPos>,
+    mut highest_platform: ResMut<HighestPlatformInfo>,
 ) {
     commands.spawn(PlatformBundle::new(
         images.platforms[0].clone(),
@@ -188,7 +187,8 @@ fn create_initial_platforms(
         Platform::Static,
     ));
 
-    highest_platform_pos.0 = Vec2::new(0., -180.);
+    highest_platform.pos = Vec2::new(0., -180.);
+    highest_platform.platform = Platform::Static;
 }
 
 fn remove_all_platforms(
@@ -205,7 +205,7 @@ fn add_platforms(
     query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
     height: Res<Height>,
-    mut highest_platform_pos: ResMut<HighestPlatformPos>,
+    mut highest_platform: ResMut<HighestPlatformInfo>,
 ) {
     let (camera, camera_transform) = query_camera.single();
     let window_top = camera
@@ -213,35 +213,40 @@ fn add_platforms(
         .unwrap_or(Vec2::ZERO)
         .y;
 
-    if height.0 > highest_platform_pos.y - window_top {
+    if height.0 > highest_platform.pos.y - window_top {
         let mut rng = rand::thread_rng();
 
-        highest_platform_pos.y += rng.gen_range(65.0..85.0);
-        let mut new_x = highest_platform_pos.x;
+        let mut pos = highest_platform.pos;
+        pos.y += rng.gen_range(65.0..85.0);
+        let mut new_x = pos.x;
         let mut diff_x = 0.;
         while !(75. ..190.).contains(&diff_x) {
             new_x = rng.gen_range(-150.0..150.);
-            diff_x = (new_x - highest_platform_pos.x).abs();
+            diff_x = (new_x - pos.x).abs();
         }
-        highest_platform_pos.x = new_x;
+        pos.x = new_x;
 
-        let platform_index = rng.gen_range(0..images.platforms.len());
-        let platform = match platform_index {
-            0 => Platform::Static,
-            1 => Platform::Hanging,
-            2 => Platform::Moving {
-                velocity: rng.gen_range(0.5 ..1.0),
-                range: rng.gen_range(20. ..40.),
-            },
-            _ => panic!("Unsupported platform index"),
+        let platform = if highest_platform.platform == Platform::Static {
+            match rng.gen() {
+                0. .. 0.4 => Platform::Static,
+                0.4 .. 0.7 => Platform::Hanging,
+                _ => Platform::Moving {
+                    velocity: rng.gen_range(0.5 ..1.0),
+                    range: rng.gen_range(20. ..40.),
+                }
+            }
+        } else {
+          Platform::Static
         };
 
         platform.spawn(
             &mut commands,
-            platform_index,
             &images,
-            highest_platform_pos.0,
+            pos,
         );
+
+        highest_platform.pos = pos;
+        highest_platform.platform = platform;
     }
 }
 
