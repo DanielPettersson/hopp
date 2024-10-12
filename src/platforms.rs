@@ -5,9 +5,16 @@ use avian2d::position::{Position, Rotation};
 use avian2d::prelude::{DistanceJoint, Joint, LinearVelocity, RigidBody};
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Transform, Update, Vec2, Vec3, Window, With};
+use bevy::prelude::{
+    default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos,
+    GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query,
+    Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Transform, Update, Vec2, Vec3, Window,
+    With,
+};
 use bevy::window::PrimaryWindow;
+use bevy_magic_light_2d::prelude::LightOccluder2D;
 use rand::Rng;
+use crate::camera::MainCamera;
 
 static PLATFORM_TEXTURE_SIZE: f32 = 46.;
 
@@ -22,7 +29,8 @@ impl Plugin for PlatformsPlugin {
                 FixedUpdate,
                 (add_platforms, remove_platforms, scroll_platforms)
                     .run_if(in_state(GameState::InGame)),
-            ).add_systems(Update, draw_ropes);
+            )
+            .add_systems(Update, draw_ropes);
     }
 }
 
@@ -31,7 +39,10 @@ enum Platform {
     #[default]
     Static,
     Hanging,
-    Moving { velocity: f32, range: f32 },
+    Moving {
+        velocity: f32,
+        range: f32,
+    },
 }
 
 impl Platform {
@@ -57,19 +68,19 @@ impl Platform {
         }
     }
 
-    fn spawn(
-        &self,
-        commands: &mut Commands,
-        images: &ImageAssets,
-        pos: Vec2,
-    ) {
+    fn spawn(&self, commands: &mut Commands, images: &ImageAssets, pos: Vec2) {
         let platform = commands
-            .spawn(PlatformBundle::new(
-                images.platforms[self.get_image_index()].clone(),
-                92.,
-                20.,
-                pos.extend(0.),
-                self.clone(),
+            .spawn((
+                PlatformBundle::new(
+                    images.platforms[self.get_image_index()].clone(),
+                    92.,
+                    20.,
+                    pos.extend(0.),
+                    self.clone(),
+                ),
+                LightOccluder2D {
+                    h_size: Vec2::new(46., 10.),
+                },
             ))
             .id();
 
@@ -202,7 +213,7 @@ fn remove_all_platforms(
 
 fn add_platforms(
     mut commands: Commands,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     images: Res<ImageAssets>,
     height: Res<Height>,
     mut highest_platform: ResMut<HighestPlatformInfo>,
@@ -228,22 +239,18 @@ fn add_platforms(
 
         let platform = if highest_platform.platform == Platform::Static {
             match rng.gen() {
-                0. .. 0.4 => Platform::Static,
-                0.4 .. 0.7 => Platform::Hanging,
+                0.0..0.4 => Platform::Static,
+                0.4..0.7 => Platform::Hanging,
                 _ => Platform::Moving {
-                    velocity: rng.gen_range(0.5 ..1.0),
+                    velocity: rng.gen_range(0.5..1.0),
                     range: rng.gen_range(20. ..40.),
-                }
+                },
             }
         } else {
-          Platform::Static
+            Platform::Static
         };
 
-        platform.spawn(
-            &mut commands,
-            &images,
-            pos,
-        );
+        platform.spawn(&mut commands, &images, pos);
 
         highest_platform.pos = pos;
         highest_platform.platform = platform;
@@ -253,7 +260,7 @@ fn add_platforms(
 fn remove_platforms(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     platform_or_bolt_query: Query<(Entity, &Sprite, &Transform), WithPlatformOrBolt>,
 ) {
     let (camera, camera_transform) = query_camera.single();
@@ -279,13 +286,13 @@ fn scroll_platforms(time: Res<Time>, mut platform_query: Query<(&mut LinearVeloc
     }
 }
 
-fn draw_ropes(mut gizmos: Gizmos, bodies: Query<(&Position, &Rotation)>,
-              rope_query: Query<&DistanceJoint, With<Rope>>) {
+fn draw_ropes(
+    mut gizmos: Gizmos,
+    bodies: Query<(&Position, &Rotation)>,
+    rope_query: Query<&DistanceJoint, With<Rope>>,
+) {
     for distance_joint in rope_query.iter() {
-
-        if let Ok([(pos1, rot1), (pos2, rot2)]) =
-            bodies.get_many(distance_joint.entities())
-        {
+        if let Ok([(pos1, rot1), (pos2, rot2)]) = bodies.get_many(distance_joint.entities()) {
             gizmos.line_2d(
                 pos1.0 + rot1 * distance_joint.local_anchor_1(),
                 pos2.0 + rot2 * distance_joint.local_anchor_2(),

@@ -15,11 +15,16 @@ use crate::player::PlayerPlugin;
 use crate::score::ScorePlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
-use bevy::reflect::erased_serde::__private::serde::{Deserialize, Serialize};
+use bevy::render::texture::{ImageFilterMode, ImageSamplerDescriptor};
 use bevy::sprite::Mesh2dHandle;
 use bevy::window::PrimaryWindow;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
+};
+use bevy_magic_light_2d::gi::resource::TargetScalingParams;
+use bevy_magic_light_2d::prelude::{
+    setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings, CameraTargets,
+    LightPassParams, OmniLightSource2D,
 };
 use bevy_persistent::prelude::*;
 use bevy_persistent_windows::prelude::*;
@@ -89,7 +94,18 @@ fn main() {
         primary_window: None,
         ..Default::default()
     };
-    app.add_plugins(DefaultPlugins.set(window_plugin).build());
+    app.add_plugins(
+        DefaultPlugins
+            .set(window_plugin)
+            .set(ImagePlugin {
+                default_sampler: ImageSamplerDescriptor {
+                    mag_filter: ImageFilterMode::Nearest,
+                    min_filter: ImageFilterMode::Nearest,
+                    ..default()
+                },
+            })
+            .build(),
+    );
 
     app.world_mut().spawn((
         PrimaryWindow,
@@ -110,7 +126,15 @@ fn main() {
         },
     ));
 
-    app.add_plugins((
+    app.insert_resource(BevyMagicLight2DSettings {
+        light_pass_params: LightPassParams {
+            smooth_kernel_size: (4, 4),
+            ..default()
+        },
+        ..default()
+    })
+    .add_plugins((
+        BevyMagicLight2DPlugin,
         PersistentWindowsPlugin,
         PhysicsPlugins::default().with_length_unit(100.0),
         DragPlugin,
@@ -128,7 +152,7 @@ fn main() {
             .load_collection::<ImageAssets>()
             .load_collection::<FontAssets>(),
     )
-    .add_systems(Startup, setup)
+    .add_systems(Startup, setup.after(setup_post_processing_camera))
     .add_systems(
         FixedUpdate,
         increase_height.run_if(in_state(GameState::InGame)),
@@ -158,6 +182,45 @@ fn setup(
         rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
         rectangle_2: Mesh2dHandle(meshes.add(Rectangle::new(2., 2.))),
     });
+
+    commands.spawn((
+        OmniLightSource2D {
+            intensity: 1.0,
+            color: Color::WHITE,
+            falloff: Vec3::new(50., 50., 0.005),
+            ..default()
+        },
+        SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(300., 300., 0.)),
+            ..default()
+        },
+    ));
+
+    commands.spawn((
+        OmniLightSource2D {
+            intensity: 0.5,
+            color: Color::WHITE,
+            falloff: Vec3::new(50., 50., 0.005),
+            ..default()
+        },
+        SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(-300., 300., 0.)),
+            ..default()
+        },
+    ));
+
+    commands.spawn((
+        OmniLightSource2D {
+            intensity: 0.5,
+            color: Color::srgb(1.0, 0., 0.),
+            falloff: Vec3::new(2., 2., 0.005),
+            ..default()
+        },
+        SpatialBundle {
+            transform: Transform::from_translation(Vec3::new(-0., -180., 0.)),
+            ..default()
+        },
+    ));
 }
 
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {

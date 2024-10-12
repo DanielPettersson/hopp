@@ -11,6 +11,7 @@ rand = "0.8.5"
 bevy_asset_loader = "0.21.0"
 bevy-persistent = { version = "0.6.0", features = ["json"] }
 bevy-persistent-windows = "0.6.1"
+bevy_magic_light_2d = "0.8.1"
 dirs = "5.0.1"
 serde = "1.0.210"
 

@@ -5,6 +5,7 @@ use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entit
 use bevy::sprite::Anchor;
 use bevy_persistent::{Persistent, StorageFormat};
 use serde::{Deserialize, Serialize};
+use crate::camera::MainCamera;
 
 pub struct ScorePlugin;
 
@@ -45,7 +46,7 @@ fn create_score_text(
     mut commands: Commands,
     fonts: Res<FontAssets>,
     mut score: ResMut<Score>,
-    query_camera: Query<(&Camera, &GlobalTransform)>,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     score.0 = 0;
     let (camera, camera_transform) = query_camera.single();
@@ -79,7 +80,7 @@ fn remove_score_text(mut commands: Commands, query_score_text: Query<Entity, Wit
 }
 
 fn scroll_score(
-    query_camera: Query<(&Camera, &GlobalTransform)>,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut score_query: Query<&mut Transform, With<ScoreText>>,
 ) {
     let (camera, camera_transform) = query_camera.single();
