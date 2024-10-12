@@ -5,10 +5,15 @@ edition = "2021"
 
 [dependencies]
 avian2d = { version = "0.1.2", features = ["simd", "parallel"] }
-bevy = { version = "0.14.2", features = ["dynamic_linking", "wayland"] }
+bevy = { version = "0.14.2", features = ["dynamic_linking"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 rand = "0.8.5"
 bevy_asset_loader = "0.21.0"
+bevy-persistent = { version = "0.6.0", features = ["json"] }
+bevy-persistent-windows = "0.6.1"
+dirs = "5.0.1"
+serde = "1.0.210"
+
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

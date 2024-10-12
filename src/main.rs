@@ -15,10 +15,15 @@ use crate::player::PlayerPlugin;
 use crate::score::ScorePlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
+use bevy::reflect::erased_serde::__private::serde::{Deserialize, Serialize};
 use bevy::sprite::Mesh2dHandle;
+use bevy::window::PrimaryWindow;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
+use bevy_persistent::prelude::*;
+use bevy_persistent_windows::prelude::*;
+use std::path::PathBuf;
 
 static WORLD_SIZE: f32 = 400.;
 static HALF_WORLD_SIZE: f32 = WORLD_SIZE / 2.;
@@ -78,38 +83,64 @@ struct MeshHandles {
 struct Height(f32);
 
 fn main() {
-    App::new()
-        .add_plugins((
-            DefaultPlugins,
-            PhysicsPlugins::default().with_length_unit(100.0),
-            DragPlugin,
-            PlayerPlugin,
-            CameraPlugin,
-            PlatformsPlugin,
-            GameOverLinePlugin,
-            ScorePlugin,
-            CloudsPlugin,
-        ))
-        .init_state::<GameState>()
-        .add_loading_state(
-            LoadingState::new(GameState::Loading)
-                .continue_to_state(GameState::InGame)
-                .load_collection::<ImageAssets>()
-                .load_collection::<FontAssets>(),
-        )
-        .add_systems(Startup, setup)
-        .add_systems(
-            FixedUpdate,
-            increase_height.run_if(in_state(GameState::InGame)),
-        )
-        .add_systems(OnEnter(GameState::InGame), reset_game)
-        .add_systems(OnExit(GameState::InGame), cleanup_game)
-        .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
-        .insert_resource(SubstepCount(6))
-        .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
-        .insert_resource(Height(0.0))
-        .insert_resource(ClearColor(Color::srgb(0.46, 0.58, 1.0)))
-        .run();
+    let mut app = App::new();
+
+    let window_plugin = WindowPlugin {
+        primary_window: None,
+        ..Default::default()
+    };
+    app.add_plugins(DefaultPlugins.set(window_plugin).build());
+
+    app.world_mut().spawn((
+        PrimaryWindow,
+        PersistentWindowBundle {
+            window: Window {
+                title: "Hopp!".to_owned(),
+                ..Default::default()
+            },
+            state: Persistent::<WindowState>::builder()
+                .name("primary window state")
+                .format(StorageFormat::Json)
+                .path(get_state_directory().join("primary-window.json"))
+                .default(WindowState::windowed(1280, 720))
+                .revertible(true)
+                .revert_to_default_on_deserialization_errors(true)
+                .build()
+                .expect("failed to create the persistent primary window state"),
+        },
+    ));
+
+    app.add_plugins((
+        PersistentWindowsPlugin,
+        PhysicsPlugins::default().with_length_unit(100.0),
+        DragPlugin,
+        PlayerPlugin,
+        CameraPlugin,
+        PlatformsPlugin,
+        GameOverLinePlugin,
+        ScorePlugin,
+        CloudsPlugin,
+    ))
+    .init_state::<GameState>()
+    .add_loading_state(
+        LoadingState::new(GameState::Loading)
+            .continue_to_state(GameState::InGame)
+            .load_collection::<ImageAssets>()
+            .load_collection::<FontAssets>(),
+    )
+    .add_systems(Startup, setup)
+    .add_systems(
+        FixedUpdate,
+        increase_height.run_if(in_state(GameState::InGame)),
+    )
+    .add_systems(OnEnter(GameState::InGame), reset_game)
+    .add_systems(OnExit(GameState::InGame), cleanup_game)
+    .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
+    .insert_resource(SubstepCount(6))
+    .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
+    .insert_resource(Height(0.0))
+    .insert_resource(ClearColor(Color::srgb(0.46, 0.58, 1.0)))
+    .run();
 }
 
 fn setup(
@@ -153,4 +184,11 @@ fn restart_game(
     if keys.get_just_pressed().len() > 0 || buttons.get_just_pressed().len() > 0 {
         next_state.set(GameState::InGame);
     }
+}
+
+fn get_state_directory() -> PathBuf {
+    dirs::data_dir()
+        .expect("failed to get the platforms data directory")
+        .join("hopp")
+        .join("state")
 }

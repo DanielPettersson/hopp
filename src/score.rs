@@ -1,12 +1,10 @@
-use crate::{FontAssets, GameState};
+use crate::{get_state_directory, FontAssets, GameState};
 use bevy::app::App;
 use bevy::math::Vec2;
-use bevy::prelude::{
-    default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform,
-    IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource,
-    Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With,
-};
+use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
 use bevy::sprite::Anchor;
+use bevy_persistent::{Persistent, StorageFormat};
+use serde::{Deserialize, Serialize};
 
 pub struct ScorePlugin;
 
@@ -21,12 +19,24 @@ impl Plugin for ScorePlugin {
                 update_score.run_if(in_state(GameState::InGame)),
             )
             .add_systems(OnEnter(GameState::GameOver), create_game_over)
-            .add_systems(OnExit(GameState::GameOver), remove_score_text);
+            .add_systems(OnExit(GameState::GameOver), remove_score_text)
+            .insert_resource(
+                Persistent::<HighScore>::builder()
+                    .name("high_score")
+                    .format(StorageFormat::Json)
+                    .path(get_state_directory().join("high_score.json"))
+                    .default(HighScore::default())
+                    .build()
+                    .expect("Failed to initialize high score"),
+            );
     }
 }
 
 #[derive(Resource)]
 pub struct Score(pub u32);
+
+#[derive(Default, Resource, Serialize, Deserialize)]
+struct HighScore(u32);
 
 #[derive(Component)]
 pub struct ScoreText;
@@ -85,6 +95,7 @@ fn scroll_score(
 fn update_score(
     mut old_score: Local<u32>,
     score: Res<Score>,
+    mut high_score: ResMut<Persistent<HighScore>>,
     mut score_query: Query<&mut Text, With<ScoreText>>,
 ) {
     if *old_score != score.0 {
@@ -92,17 +103,29 @@ fn update_score(
         for mut text in score_query.iter_mut() {
             text.sections[0].value = format!("{}", score.0);
         }
+        if score.0 > high_score.0 {
+            high_score.0 = score.0;
+        }
     }
 }
 
-fn create_game_over(mut commands: Commands, fonts: Res<FontAssets>, score: Res<Score>) {
+fn create_game_over(
+    mut commands: Commands,
+    fonts: Res<FontAssets>,
+    score: Res<Score>,
+    high_score: Res<Persistent<HighScore>>,
+) {
+    high_score
+        .persist()
+        .unwrap_or_else(|e| println!("Failed to persist high score: {}", e));
+    
     commands.spawn((
         Text2dBundle {
             text: Text::from_section(
-                format!("Game Over\nScore {}", score.0),
+                format!("Game Over\nScore {}\nHigh score {}", score.0, high_score.0),
                 TextStyle {
                     font: fonts.segmental.clone(),
-                    font_size: 70.0,
+                    font_size: 40.0,
                     color: Color::srgb(2.0, 2.0, 0.0),
                 },
             )
@@ -126,7 +149,7 @@ fn create_game_over(mut commands: Commands, fonts: Res<FontAssets>, score: Res<S
             )
             .with_justify(JustifyText::Center),
             text_anchor: Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(0., -50., 0.)),
+            transform: Transform::from_translation(Vec3::new(0., -70., 0.)),
             ..default()
         },
         ScoreText,
