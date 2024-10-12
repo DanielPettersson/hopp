@@ -1,11 +1,15 @@
-use crate::{get_state_directory, FontAssets, GameState};
+use crate::camera::MainCamera;
+use crate::{get_state_directory, FontAssets, GameState, Height};
 use bevy::app::App;
 use bevy::math::Vec2;
-use bevy::prelude::{default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform, IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource, Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With};
+use bevy::prelude::{
+    default, in_state, Camera, Color, Commands, Component, Entity, FixedUpdate, GlobalTransform,
+    IntoSystemConfigs, JustifyText, Local, OnEnter, OnExit, Plugin, Query, Res, ResMut, Resource,
+    Text, Text2dBundle, TextStyle, Transform, Update, Vec3, With,
+};
 use bevy::sprite::Anchor;
 use bevy_persistent::{Persistent, StorageFormat};
 use serde::{Deserialize, Serialize};
-use crate::camera::MainCamera;
 
 pub struct ScorePlugin;
 
@@ -61,7 +65,7 @@ fn create_score_text(
                 TextStyle {
                     font: fonts.segmental.clone(),
                     font_size: 30.0,
-                    color: Color::srgb(1.5, 1.5, 1.5),
+                    color: Color::srgb(1.5, 1.5, 0.),
                 },
             )
             .with_justify(JustifyText::Left),
@@ -115,44 +119,54 @@ fn create_game_over(
     fonts: Res<FontAssets>,
     score: Res<Score>,
     high_score: Res<Persistent<HighScore>>,
+    height: Res<Height>,
 ) {
     high_score
         .persist()
         .unwrap_or_else(|e| println!("Failed to persist high score: {}", e));
-    
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                format!("Game Over\nScore {}\nHigh score {}", score.0, high_score.0),
-                TextStyle {
-                    font: fonts.segmental.clone(),
-                    font_size: 40.0,
-                    color: Color::srgb(2.0, 2.0, 0.0),
-                },
-            )
-            .with_justify(JustifyText::Center),
-            text_anchor: Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(0., 50., 0.)),
-            ..default()
-        },
-        ScoreText,
-    ));
 
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section(
-                "Press any key to play again",
-                TextStyle {
-                    font: fonts.segmental.clone(),
-                    font_size: 30.0,
-                    color: Color::srgb(1.5, 1.5, 1.5),
-                },
-            )
-            .with_justify(JustifyText::Center),
-            text_anchor: Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(0., -70., 0.)),
-            ..default()
-        },
-        ScoreText,
-    ));
+    for (color, delta) in [
+        (Color::srgb(1.0, 1.0, 0.0), Vec3::new(0., 0., 101.)),
+        (Color::srgb(0.0, 0.0, 0.0), Vec3::new(2., -2., 100.)),
+    ] {
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(
+                    format!("Game Over\nScore {}\nHigh score {}", score.0, high_score.0),
+                    TextStyle {
+                        font: fonts.segmental.clone(),
+                        font_size: 40.0,
+                        color,
+                    },
+                )
+                .with_justify(JustifyText::Center),
+                text_anchor: Anchor::Center,
+                transform: Transform::from_translation(
+                    Vec3::new(0., height.0 + 50., 0.) + delta,
+                ),
+                ..default()
+            },
+            ScoreText,
+        ));
+
+        commands.spawn((
+            Text2dBundle {
+                text: Text::from_section(
+                    "Press any key to play again",
+                    TextStyle {
+                        font: fonts.segmental.clone(),
+                        font_size: 30.0,
+                        color,
+                    },
+                )
+                .with_justify(JustifyText::Center),
+                text_anchor: Anchor::Center,
+                transform: Transform::from_translation(
+                    Vec3::new(0., height.0 - 70., 0.) + delta,
+                ),
+                ..default()
+            },
+            ScoreText,
+        ));
+    }
 }

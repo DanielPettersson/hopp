@@ -21,11 +21,7 @@ use bevy::window::PrimaryWindow;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use bevy_magic_light_2d::gi::resource::TargetScalingParams;
-use bevy_magic_light_2d::prelude::{
-    setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings, CameraTargets,
-    LightPassParams, OmniLightSource2D,
-};
+use bevy_magic_light_2d::prelude::{setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings, LightPassParams, OmniLightSource2D};
 use bevy_persistent::prelude::*;
 use bevy_persistent_windows::prelude::*;
 use std::path::PathBuf;
@@ -86,6 +82,9 @@ struct MeshHandles {
 
 #[derive(Resource)]
 struct Height(f32);
+
+#[derive(Component)]
+struct GlobalLight;
 
 fn main() {
     let mut app = App::new();
@@ -157,8 +156,13 @@ fn main() {
         FixedUpdate,
         increase_height.run_if(in_state(GameState::InGame)),
     )
+    .add_systems(Update, light_scroll.run_if(in_state(GameState::InGame)))
+    .add_systems(
+        Update,
+        game_over_lights.run_if(in_state(GameState::GameOver)),
+    )
     .add_systems(OnEnter(GameState::InGame), reset_game)
-    .add_systems(OnExit(GameState::InGame), cleanup_game)
+    .add_systems(OnExit(GameState::GameOver), cleanup_game)
     .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
     .insert_resource(SubstepCount(6))
     .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
@@ -191,9 +195,10 @@ fn setup(
             ..default()
         },
         SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(300., 300., 0.)),
+            transform: Transform::from_translation(Vec3::new(250., 150., 0.)),
             ..default()
         },
+        GlobalLight,
     ));
 
     commands.spawn((
@@ -204,23 +209,34 @@ fn setup(
             ..default()
         },
         SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(-300., 300., 0.)),
+            transform: Transform::from_translation(Vec3::new(-250., 150., 0.)),
             ..default()
         },
+        GlobalLight,
     ));
+}
 
-    commands.spawn((
-        OmniLightSource2D {
-            intensity: 0.5,
-            color: Color::srgb(1.0, 0., 0.),
-            falloff: Vec3::new(2., 2., 0.005),
-            ..default()
-        },
-        SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(-0., -180., 0.)),
-            ..default()
-        },
-    ));
+fn light_scroll(
+    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
+    height: Res<Height>,
+) {
+    for mut transform in query_light_movement.iter_mut() {
+        let transform_y_diff = (height.0 + 150.0 - transform.translation.y) * 0.05;
+        transform.translation.y += transform_y_diff;
+    }
+}
+
+fn game_over_lights(
+    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
+    time: Res<Time>,
+    height: Res<Height>,
+) {
+    for mut transform in query_light_movement.iter_mut() {
+        let xx = time.elapsed_seconds().sin();
+        let yy = time.elapsed_seconds().cos();
+        transform.translation.x = transform.translation.x.signum() * (300. + xx * 50.);
+        transform.translation.y = height.0 + 150. + yy * 50.;
+    }
 }
 
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
@@ -229,8 +245,15 @@ fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
     }
 }
 
-fn reset_game(mut height: ResMut<Height>) {
+fn reset_game(
+    mut height: ResMut<Height>,
+    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
+) {
     height.0 = 0.;
+    for mut transform in query_light_movement.iter_mut() {
+        transform.translation.x = transform.translation.x.signum() * 250.0;
+        transform.translation.y = 150.0;
+    }
 }
 
 fn cleanup_game(mut commands: Commands, query_joints: Query<Entity, With<DistanceJoint>>) {

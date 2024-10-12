@@ -18,7 +18,7 @@ impl Plugin for CloudsPlugin {
             timer: Timer::from_seconds(5., TimerMode::Repeating),
         })
             .add_systems(OnEnter(GameState::InGame), add_initial_clouds)
-            .add_systems(OnExit(GameState::InGame), remove_all_clouds)
+            .add_systems(OnExit(GameState::GameOver), remove_all_clouds)
         .add_systems(
             FixedUpdate,
             (add_clouds, remove_clouds).run_if(in_state(GameState::InGame)),

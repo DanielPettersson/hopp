@@ -16,7 +16,7 @@ impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup)
             .add_systems(Update, camera_scroll.run_if(in_state(GameState::InGame)))
-            .add_systems(OnExit(GameState::InGame), reset_camera_position);
+            .add_systems(OnExit(GameState::GameOver), reset_camera_position);
     }
 }
 

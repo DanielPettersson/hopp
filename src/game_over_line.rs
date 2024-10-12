@@ -1,8 +1,8 @@
+use crate::camera::MainCamera;
 use crate::{GameState, MaterialHandles, MeshHandles, HALF_WORLD_SIZE};
 use bevy::app::App;
-use bevy::prelude::{default, in_state, Camera, Commands, Component, Entity, GlobalTransform, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Res, Transform, Update, Vec3, With};
+use bevy::prelude::{default, in_state, Commands, Component, Entity, GlobalTransform, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Res, Transform, Update, Vec3, With};
 use bevy::sprite::MaterialMesh2dBundle;
-use crate::camera::MainCamera;
 
 pub struct GameOverLinePlugin;
 

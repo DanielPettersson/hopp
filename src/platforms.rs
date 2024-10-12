@@ -24,7 +24,7 @@ impl Plugin for PlatformsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HighestPlatformInfo::default())
             .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
-            .add_systems(OnExit(GameState::InGame), remove_all_platforms)
+            .add_systems(OnExit(GameState::GameOver), remove_all_platforms)
             .add_systems(
                 FixedUpdate,
                 (add_platforms, remove_platforms, scroll_platforms)
@@ -204,9 +204,11 @@ fn create_initial_platforms(
 
 fn remove_all_platforms(
     mut commands: Commands,
-    query_platforms_and_bolts: Query<Entity, WithPlatformOrBolt>,
+    mut query_platforms_and_bolts: Query<(Entity, &mut Transform), WithPlatformOrBolt>,
+    
 ) {
-    for entity in query_platforms_and_bolts.iter() {
+    for (entity, mut transform) in query_platforms_and_bolts.iter_mut() {
+        transform.translation.y = -1000.;
         commands.entity(entity).despawn();
     }
 }
@@ -271,7 +273,7 @@ fn remove_platforms(
         .y;
 
     for (entity, sprite, transform) in platform_or_bolt_query.iter() {
-        if transform.translation.y < window_bottom - sprite.custom_size.unwrap_or(Vec2::ZERO).y / 2.
+        if transform.translation.y < window_bottom - sprite.custom_size.unwrap_or(Vec2::ZERO).y / 2. - 100.
         {
             commands.entity(entity).despawn();
         }
