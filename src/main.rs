@@ -5,6 +5,7 @@ mod game_over_line;
 mod platforms;
 mod player;
 mod score;
+mod boxes;
 
 use crate::camera::CameraPlugin;
 use crate::clouds::CloudsPlugin;
@@ -28,6 +29,7 @@ use bevy_magic_light_2d::prelude::{
 use bevy_persistent::prelude::*;
 use bevy_persistent_windows::prelude::*;
 use std::path::PathBuf;
+use crate::boxes::BoxesPlugin;
 
 static WORLD_SIZE: f32 = 400.;
 static HALF_WORLD_SIZE: f32 = WORLD_SIZE / 2.;
@@ -47,6 +49,7 @@ struct ImageAssets {
         collection(typed)
     )]
     platforms: Vec<Handle<Image>>,
+    
     #[asset(
         paths(
             "images/cloud1.png",
@@ -61,6 +64,12 @@ struct ImageAssets {
 
     #[asset(path = "images/bolt.png")]
     bolt: Handle<Image>,
+
+    #[asset(
+        paths("images/box1.png", "images/box2.png", "images/box3.png"),
+        collection(typed)
+    )]
+    boxes: Vec<Handle<Image>>,
 }
 
 #[derive(AssetCollection, Resource)]
@@ -145,6 +154,7 @@ fn main() {
         GameOverLinePlugin,
         ScorePlugin,
         CloudsPlugin,
+        BoxesPlugin,
     ))
     .init_state::<GameState>()
     .add_loading_state(

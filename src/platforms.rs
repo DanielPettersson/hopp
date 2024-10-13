@@ -239,7 +239,7 @@ fn add_platforms(
         let mut rng = rand::thread_rng();
 
         let mut pos = highest_platform.pos;
-        pos.y += rng.gen_range(65.0..85.0);
+        pos.y += rng.gen_range(60.0..75.0);
         let mut new_x = pos.x;
         let mut diff_x = 0.;
         while !(75. ..190.).contains(&diff_x) {
