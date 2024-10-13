@@ -14,7 +14,7 @@ pub struct CloudsPlugin;
 
 impl Plugin for CloudsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(CloudSpawnConfig {
+        app.insert_resource(CloudSpawnTimer {
             timer: Timer::from_seconds(5., TimerMode::Repeating),
         })
             .add_systems(OnEnter(GameState::InGame), add_initial_clouds)
@@ -40,7 +40,7 @@ struct CloudBundle {
 }
 
 #[derive(Resource)]
-struct CloudSpawnConfig {
+struct CloudSpawnTimer {
     timer: Timer,
 }
 
@@ -100,12 +100,12 @@ fn add_clouds(
     query_window: Query<&Window, With<PrimaryWindow>>,
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     images: Res<ImageAssets>,
-    mut cloud_spawn_config: ResMut<CloudSpawnConfig>,
+    mut cloud_spawn_timer: ResMut<CloudSpawnTimer>,
     time: Res<Time>,
 ) {
-    cloud_spawn_config.timer.tick(time.delta());
+    cloud_spawn_timer.timer.tick(time.delta());
 
-    if cloud_spawn_config.timer.finished() {
+    if cloud_spawn_timer.timer.finished() {
         let mut rng = rand::thread_rng();
         let (camera, camera_transform) = query_camera.single();
         let window_size = query_window.single().size();

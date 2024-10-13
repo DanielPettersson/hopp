@@ -21,7 +21,10 @@ use bevy::window::PrimaryWindow;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use bevy_magic_light_2d::prelude::{setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings, LightPassParams, OmniLightSource2D};
+use bevy_magic_light_2d::prelude::{
+    setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings,
+    LightPassParams, OmniLightSource2D,
+};
 use bevy_persistent::prelude::*;
 use bevy_persistent_windows::prelude::*;
 use std::path::PathBuf;
@@ -124,7 +127,6 @@ fn main() {
                 .expect("failed to create the persistent primary window state"),
         },
     ));
-
     app.insert_resource(BevyMagicLight2DSettings {
         light_pass_params: LightPassParams {
             smooth_kernel_size: (4, 4),
@@ -161,9 +163,8 @@ fn main() {
         Update,
         game_over_lights.run_if(in_state(GameState::GameOver)),
     )
-    .add_systems(OnEnter(GameState::InGame), reset_game)
-    .add_systems(OnExit(GameState::GameOver), cleanup_game)
     .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
+    .add_systems(OnExit(GameState::GameOver), cleanup_game)
     .insert_resource(SubstepCount(6))
     .insert_resource(Gravity(Vec2::NEG_Y * 981.0))
     .insert_resource(Height(0.0))
@@ -245,21 +246,23 @@ fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
     }
 }
 
-fn reset_game(
+fn cleanup_game(
     mut height: ResMut<Height>,
-    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
+    mut commands: Commands,
+    query_joints: Query<Entity, With<DistanceJoint>>,
+    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>
 ) {
     height.0 = 0.;
+
+    for entity in query_joints.iter() {
+        commands.entity(entity).despawn();
+    }
+
     for mut transform in query_light_movement.iter_mut() {
         transform.translation.x = transform.translation.x.signum() * 250.0;
         transform.translation.y = 150.0;
     }
-}
 
-fn cleanup_game(mut commands: Commands, query_joints: Query<Entity, With<DistanceJoint>>) {
-    for entity in query_joints.iter() {
-        commands.entity(entity).despawn();
-    }
 }
 
 fn restart_game(

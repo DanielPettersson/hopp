@@ -1,3 +1,4 @@
+use crate::camera::MainCamera;
 use crate::{GameState, Height, ImageAssets};
 use avian2d::collision::Collider;
 use avian2d::dynamics::solver::xpbd::XpbdConstraint;
@@ -5,16 +6,10 @@ use avian2d::position::{Position, Rotation};
 use avian2d::prelude::{DistanceJoint, Joint, LinearVelocity, RigidBody};
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{
-    default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos,
-    GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query,
-    Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Transform, Update, Vec2, Vec3, Window,
-    With,
-};
+use bevy::prelude::{default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Timer, TimerMode, Transform, Update, Vec2, Vec3, Window, With};
 use bevy::window::PrimaryWindow;
 use bevy_magic_light_2d::prelude::LightOccluder2D;
 use rand::Rng;
-use crate::camera::MainCamera;
 
 static PLATFORM_TEXTURE_SIZE: f32 = 46.;
 
@@ -23,15 +18,23 @@ pub struct PlatformsPlugin;
 impl Plugin for PlatformsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(HighestPlatformInfo::default())
+            .insert_resource(PlatformDespawnTimer {
+                timer: Timer::from_seconds(1., TimerMode::Repeating),
+            })
             .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
-            .add_systems(OnExit(GameState::GameOver), remove_all_platforms)
+            .add_systems(Update, draw_ropes.run_if(in_state(GameState::InGame)))
             .add_systems(
                 FixedUpdate,
                 (add_platforms, remove_platforms, scroll_platforms)
                     .run_if(in_state(GameState::InGame)),
             )
-            .add_systems(Update, draw_ropes);
+            .add_systems(OnExit(GameState::GameOver), remove_all_platforms);
     }
+}
+
+#[derive(Resource)]
+struct PlatformDespawnTimer {
+    timer: Timer,
 }
 
 #[derive(Component, Clone, Default, PartialEq)]
@@ -189,7 +192,10 @@ fn create_initial_platforms(
     mut commands: Commands,
     images: Res<ImageAssets>,
     mut highest_platform: ResMut<HighestPlatformInfo>,
+    mut platform_despawn_timer: ResMut<PlatformDespawnTimer>
 ) {
+    platform_despawn_timer.timer.reset();
+    
     commands.spawn(PlatformBundle::new(
         images.platforms[0].clone(),
         10000.,
@@ -204,11 +210,9 @@ fn create_initial_platforms(
 
 fn remove_all_platforms(
     mut commands: Commands,
-    mut query_platforms_and_bolts: Query<(Entity, &mut Transform), WithPlatformOrBolt>,
-    
+    mut query_platforms_and_bolts: Query<Entity, WithPlatformOrBolt>,
 ) {
-    for (entity, mut transform) in query_platforms_and_bolts.iter_mut() {
-        transform.translation.y = -1000.;
+    for entity in query_platforms_and_bolts.iter_mut() {
         commands.entity(entity).despawn();
     }
 }
@@ -263,19 +267,25 @@ fn remove_platforms(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut platform_despawn_timer: ResMut<PlatformDespawnTimer>,
+    time: Res<Time>,
     platform_or_bolt_query: Query<(Entity, &Sprite, &Transform), WithPlatformOrBolt>,
 ) {
-    let (camera, camera_transform) = query_camera.single();
-    let window_size = query_window.single().size();
-    let window_bottom = camera
-        .viewport_to_world_2d(camera_transform, window_size)
-        .unwrap_or(Vec2::ZERO)
-        .y;
+    platform_despawn_timer.timer.tick(time.delta());
+    
+    if platform_despawn_timer.timer.finished() {
+        let (camera, camera_transform) = query_camera.single();
+        let window_size = query_window.single().size();
+        let window_bottom = camera
+            .viewport_to_world_2d(camera_transform, window_size)
+            .unwrap_or(Vec2::ZERO)
+            .y;
 
-    for (entity, sprite, transform) in platform_or_bolt_query.iter() {
-        if transform.translation.y < window_bottom - sprite.custom_size.unwrap_or(Vec2::ZERO).y / 2. - 100.
-        {
-            commands.entity(entity).despawn();
+        for (entity, sprite, transform) in platform_or_bolt_query.iter() {
+            let sprite_half_height = sprite.custom_size.unwrap_or(Vec2::ZERO).y / 2.;
+            if transform.translation.y < window_bottom - sprite_half_height - 100. {
+                commands.entity(entity).despawn();
+            }
         }
     }
 }
