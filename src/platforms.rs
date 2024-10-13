@@ -6,7 +6,12 @@ use avian2d::position::{Position, Rotation};
 use avian2d::prelude::{DistanceJoint, Joint, LinearVelocity, RigidBody};
 use bevy::app::App;
 use bevy::asset::Handle;
-use bevy::prelude::{default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos, GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query, Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Timer, TimerMode, Transform, Update, Vec2, Vec3, Window, With};
+use bevy::prelude::{
+    default, in_state, Bundle, Camera, Color, Commands, Component, Entity, FixedUpdate, Gizmos,
+    GlobalTransform, Image, ImageScaleMode, IntoSystemConfigs, OnEnter, OnExit, Or, Plugin, Query,
+    Rect, Res, ResMut, Resource, Sprite, SpriteBundle, Time, Timer, TimerMode, Transform, Update,
+    Vec2, Vec3, Window, With,
+};
 use bevy::window::PrimaryWindow;
 use bevy_magic_light_2d::prelude::LightOccluder2D;
 use rand::Rng;
@@ -22,7 +27,7 @@ impl Plugin for PlatformsPlugin {
                 timer: Timer::from_seconds(1., TimerMode::Repeating),
             })
             .add_systems(OnEnter(GameState::InGame), create_initial_platforms)
-            .add_systems(Update, draw_ropes.run_if(in_state(GameState::InGame)))
+            .add_systems(Update, draw_ropes)
             .add_systems(
                 FixedUpdate,
                 (add_platforms, remove_platforms, scroll_platforms)
@@ -192,10 +197,10 @@ fn create_initial_platforms(
     mut commands: Commands,
     images: Res<ImageAssets>,
     mut highest_platform: ResMut<HighestPlatformInfo>,
-    mut platform_despawn_timer: ResMut<PlatformDespawnTimer>
+    mut platform_despawn_timer: ResMut<PlatformDespawnTimer>,
 ) {
     platform_despawn_timer.timer.reset();
-    
+
     commands.spawn(PlatformBundle::new(
         images.platforms[0].clone(),
         10000.,
@@ -272,7 +277,7 @@ fn remove_platforms(
     platform_or_bolt_query: Query<(Entity, &Sprite, &Transform), WithPlatformOrBolt>,
 ) {
     platform_despawn_timer.timer.tick(time.delta());
-    
+
     if platform_despawn_timer.timer.finished() {
         let (camera, camera_transform) = query_camera.single();
         let window_size = query_window.single().size();
