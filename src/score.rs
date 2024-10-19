@@ -1,4 +1,3 @@
-use crate::camera::MainCamera;
 use crate::{get_state_directory, FontAssets, GameState, Height};
 use bevy::app::App;
 use bevy::math::Vec2;
@@ -50,7 +49,7 @@ fn create_score_text(
     mut commands: Commands,
     fonts: Res<FontAssets>,
     mut score: ResMut<Score>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
 ) {
     score.0 = 0;
     let (camera, camera_transform) = query_camera.single();
@@ -84,7 +83,7 @@ fn remove_score_text(mut commands: Commands, query_score_text: Query<Entity, Wit
 }
 
 fn scroll_score(
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     mut score_query: Query<&mut Transform, With<ScoreText>>,
 ) {
     let (camera, camera_transform) = query_camera.single();

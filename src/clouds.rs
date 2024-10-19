@@ -5,7 +5,6 @@ use bevy::prelude::{default, in_state, Bundle, Camera, Commands, Component, Enti
 use bevy::time::TimerMode;
 use bevy::window::PrimaryWindow;
 use rand::Rng;
-use crate::camera::MainCamera;
 
 static CLOUD_MAX_WIDTH: f32 = 220.0;
 static CLOUD_MAX_HALF_WIDTH: f32 = CLOUD_MAX_WIDTH / 2.0;
@@ -68,7 +67,7 @@ fn remove_all_clouds(mut commands: Commands, query_clouds: Query<Entity, With<Cl
 fn add_initial_clouds(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
 ) {
     
@@ -98,7 +97,7 @@ fn add_initial_clouds(
 fn add_clouds(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
     mut cloud_spawn_timer: ResMut<CloudSpawnTimer>,
     time: Res<Time>,
@@ -131,7 +130,7 @@ fn add_clouds(
 fn remove_clouds(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     cloud_query: Query<(Entity, &Transform), With<Cloud>>,
 ) {
     let (camera, camera_transform) = query_camera.single();

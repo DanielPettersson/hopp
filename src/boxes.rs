@@ -1,4 +1,3 @@
-use crate::camera::MainCamera;
 use crate::{GameState, Height, ImageAssets};
 use avian2d::collision::Collider;
 use avian2d::prelude::{AngularVelocity, LinearVelocity, RigidBody};
@@ -70,7 +69,7 @@ impl BoxBundle {
 }
 
 fn spawn_boxes(
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
     height: Res<Height>,
     mut commands: Commands,
@@ -100,7 +99,7 @@ fn spawn_boxes(
 fn remove_boxes(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     boxes_query: Query<(Entity, &Sprite, &Transform), With<Box>>,
 ) {
     let (camera, camera_transform) = query_camera.single();

@@ -1,4 +1,3 @@
-use crate::camera::MainCamera;
 use crate::{GameState, Height, ImageAssets};
 use avian2d::collision::Collider;
 use avian2d::dynamics::solver::xpbd::XpbdConstraint;
@@ -13,7 +12,6 @@ use bevy::prelude::{
     Vec2, Vec3, Window, With,
 };
 use bevy::window::PrimaryWindow;
-use bevy_magic_light_2d::prelude::LightOccluder2D;
 use rand::Rng;
 
 static PLATFORM_TEXTURE_SIZE: f32 = 46.;
@@ -86,9 +84,6 @@ impl Platform {
                     pos.extend(0.),
                     self.clone(),
                 ),
-                LightOccluder2D {
-                    h_size: Vec2::new(46., 10.),
-                },
             ))
             .id();
 
@@ -224,7 +219,7 @@ fn remove_all_platforms(
 
 fn add_platforms(
     mut commands: Commands,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     images: Res<ImageAssets>,
     height: Res<Height>,
     mut highest_platform: ResMut<HighestPlatformInfo>,
@@ -271,7 +266,7 @@ fn add_platforms(
 fn remove_platforms(
     mut commands: Commands,
     query_window: Query<&Window, With<PrimaryWindow>>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    query_camera: Query<(&Camera, &GlobalTransform)>,
     mut platform_despawn_timer: ResMut<PlatformDespawnTimer>,
     time: Res<Time>,
     platform_or_bolt_query: Query<(Entity, &Sprite, &Transform), WithPlatformOrBolt>,

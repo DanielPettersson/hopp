@@ -1,7 +1,6 @@
-use crate::camera::MainCamera;
 use crate::{GameState, MaterialHandles, MeshHandles, HALF_WORLD_SIZE};
 use bevy::app::App;
-use bevy::prelude::{default, in_state, Commands, Component, Entity, GlobalTransform, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Res, Transform, Update, Vec3, With};
+use bevy::prelude::{default, in_state, Camera, Commands, Component, Entity, GlobalTransform, IntoSystemConfigs, OnEnter, OnExit, Plugin, Query, Res, Transform, Update, Vec3, With};
 use bevy::sprite::MaterialMesh2dBundle;
 
 pub struct GameOverLinePlugin;
@@ -40,7 +39,7 @@ fn remove_game_over_line(mut commands: Commands, query_game_over_line: Query<Ent
 }
 
 fn scroll_game_over_line(
-    query_camera: Query<&GlobalTransform, With<MainCamera>>,
+    query_camera: Query<&GlobalTransform, With<Camera>>,
     mut game_over_line_query: Query<&mut Transform, With<GameOverLine>>,
 ) {
     for mut transform in game_over_line_query.iter_mut() {

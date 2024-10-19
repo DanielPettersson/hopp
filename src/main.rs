@@ -7,6 +7,7 @@ mod player;
 mod score;
 mod boxes;
 
+use crate::boxes::BoxesPlugin;
 use crate::camera::CameraPlugin;
 use crate::clouds::CloudsPlugin;
 use crate::drag::DragPlugin;
@@ -22,14 +23,9 @@ use bevy::window::PrimaryWindow;
 use bevy_asset_loader::prelude::{
     AssetCollection, ConfigureLoadingState, LoadingState, LoadingStateAppExt,
 };
-use bevy_magic_light_2d::prelude::{
-    setup_post_processing_camera, BevyMagicLight2DPlugin, BevyMagicLight2DSettings,
-    LightPassParams, OmniLightSource2D,
-};
 use bevy_persistent::prelude::*;
 use bevy_persistent_windows::prelude::*;
 use std::path::PathBuf;
-use crate::boxes::BoxesPlugin;
 
 static WORLD_SIZE: f32 = 400.;
 static HALF_WORLD_SIZE: f32 = WORLD_SIZE / 2.;
@@ -136,15 +132,7 @@ fn main() {
                 .expect("failed to create the persistent primary window state"),
         },
     ));
-    app.insert_resource(BevyMagicLight2DSettings {
-        light_pass_params: LightPassParams {
-            smooth_kernel_size: (4, 4),
-            ..default()
-        },
-        ..default()
-    })
-    .add_plugins((
-        BevyMagicLight2DPlugin,
+    app.add_plugins((
         PersistentWindowsPlugin,
         PhysicsPlugins::default().with_length_unit(100.0),
         DragPlugin,
@@ -163,7 +151,7 @@ fn main() {
             .load_collection::<ImageAssets>()
             .load_collection::<FontAssets>(),
     )
-    .add_systems(Startup, setup.after(setup_post_processing_camera))
+    .add_systems(Startup, setup)
     .add_systems(
         FixedUpdate,
         increase_height.run_if(in_state(GameState::InGame)),
@@ -197,34 +185,6 @@ fn setup(
         rectangle: Mesh2dHandle(meshes.add(Rectangle::new(1., 1.))),
         rectangle_2: Mesh2dHandle(meshes.add(Rectangle::new(2., 2.))),
     });
-
-    commands.spawn((
-        OmniLightSource2D {
-            intensity: 1.0,
-            color: Color::WHITE,
-            falloff: Vec3::new(50., 50., 0.005),
-            ..default()
-        },
-        SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(250., 150., 0.)),
-            ..default()
-        },
-        GlobalLight,
-    ));
-
-    commands.spawn((
-        OmniLightSource2D {
-            intensity: 0.5,
-            color: Color::WHITE,
-            falloff: Vec3::new(50., 50., 0.005),
-            ..default()
-        },
-        SpatialBundle {
-            transform: Transform::from_translation(Vec3::new(-250., 150., 0.)),
-            ..default()
-        },
-        GlobalLight,
-    ));
 }
 
 fn light_scroll(

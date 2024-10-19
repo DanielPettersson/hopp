@@ -2,15 +2,10 @@ use crate::{GameState, Height, WORLD_SIZE};
 use bevy::app::{App, Plugin, Startup};
 use bevy::core_pipeline::bloom::BloomSettings;
 use bevy::core_pipeline::tonemapping::Tonemapping;
-use bevy::prelude::{default, in_state, Camera, Camera2dBundle, Commands, Component, IntoSystemConfigs, Name, OnExit, Query, Res, Transform, Update, With};
-use bevy::render::camera::{RenderTarget, ScalingMode};
-use bevy_magic_light_2d::prelude::CameraTargets;
-use bevy_magic_light_2d::{FloorCamera, SpriteCamera};
+use bevy::prelude::{default, in_state, Camera, Camera2dBundle, Commands, IntoSystemConfigs, OnExit, Query, Res, Transform, Update, With};
+use bevy::render::camera::ScalingMode;
 
 pub struct CameraPlugin;
-
-#[derive(Component)]
-pub struct MainCamera;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
@@ -20,11 +15,10 @@ impl Plugin for CameraPlugin {
     }
 }
 
-fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>) {
+fn setup(mut commands: Commands) {
     let mut camera = Camera2dBundle {
         camera: Camera {
             hdr: true,
-            target: RenderTarget::Image(camera_targets.floor_target.clone()),
             ..default()
         },
         transform: Transform::default(),
@@ -39,11 +33,7 @@ fn setup(mut commands: Commands, camera_targets: Res<CameraTargets>) {
         .spawn((
             camera,
             BloomSettings::default(),
-            Name::new("main_camera"),
-            FloorCamera,
-            MainCamera,
-        ))
-        .insert(SpriteCamera);
+        ));
 }
 
 fn camera_scroll(

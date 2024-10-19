@@ -8,13 +8,12 @@ use avian2d::prelude::{
 use bevy::app::{App, Plugin, Update};
 use bevy::math::{Quat, Vec2};
 use bevy::prelude::{
-    default, in_state, Bundle, Color, ColorMaterial, Commands, Component, Entity, EventReader,
+    default, in_state, Bundle, ColorMaterial, Commands, Component, Entity, EventReader,
     FixedUpdate, Handle, IntoSystemConfigs, NextState, OnEnter, OnExit, Or, Query, Res, ResMut,
     Resource, Time, Timer, Transform, Vec3, With, Without,
 };
 use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
 use bevy::time::TimerMode;
-use bevy_magic_light_2d::prelude::OmniLightSource2D;
 use std::time::Duration;
 
 #[derive(Component)]
@@ -142,12 +141,6 @@ fn create_player(
             }
             if center {
                 player.insert(CenterPlayer);
-                player.insert(OmniLightSource2D {
-                    intensity: 0.5,
-                    color: Color::srgb(1.0, 0., 0.),
-                    falloff: Vec3::new(1., 1., 0.005),
-                    ..default()
-                });
             }
             row.push(player.id());
         }
@@ -357,16 +350,8 @@ fn player_height(
 fn light_up_player(
     jump_timer: Res<JumpTimer>,
     mut inner_player_query: Query<&mut Handle<ColorMaterial>, With<InnerPlayer>>,
-    mut center_player_query: Query<&mut OmniLightSource2D, With<CenterPlayer>>,
     material_handles: Res<MaterialHandles>,
 ) {
-    for mut light_source in center_player_query.iter_mut() {
-        if jump_timer.0.finished() {
-            light_source.intensity = 1.2;
-        } else {
-            light_source.intensity = 0.3;
-        };
-    }
     for mut material_handle in inner_player_query.iter_mut() {
         if jump_timer.0.finished() {
             *material_handle = material_handles.bright_red.clone();
