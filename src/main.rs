@@ -2,19 +2,17 @@ mod camera;
 mod clouds;
 mod drag;
 mod game_over_line;
-mod platforms;
+mod world;
 mod player;
 mod score;
-mod boxes;
 
-use crate::boxes::BoxesPlugin;
 use crate::camera::CameraPlugin;
 use crate::clouds::CloudsPlugin;
 use crate::drag::DragPlugin;
 use crate::game_over_line::GameOverLinePlugin;
-use crate::platforms::PlatformsPlugin;
 use crate::player::PlayerPlugin;
 use crate::score::ScorePlugin;
+use crate::world::WorldPlugin;
 use avian2d::prelude::*;
 use bevy::prelude::*;
 use bevy::render::texture::{ImageFilterMode, ImageSamplerDescriptor};
@@ -91,9 +89,6 @@ struct MeshHandles {
 #[derive(Resource)]
 struct Height(f32);
 
-#[derive(Component)]
-struct GlobalLight;
-
 fn main() {
     let mut app = App::new();
 
@@ -138,11 +133,10 @@ fn main() {
         DragPlugin,
         PlayerPlugin,
         CameraPlugin,
-        PlatformsPlugin,
+        WorldPlugin,
         GameOverLinePlugin,
         ScorePlugin,
         CloudsPlugin,
-        BoxesPlugin,
     ))
     .init_state::<GameState>()
     .add_loading_state(
@@ -155,11 +149,6 @@ fn main() {
     .add_systems(
         FixedUpdate,
         increase_height.run_if(in_state(GameState::InGame)),
-    )
-    .add_systems(Update, light_scroll.run_if(in_state(GameState::InGame)))
-    .add_systems(
-        Update,
-        game_over_lights.run_if(in_state(GameState::GameOver)),
     )
     .add_systems(Update, restart_game.run_if(in_state(GameState::GameOver)))
     .add_systems(OnExit(GameState::GameOver), cleanup_game)
@@ -187,29 +176,6 @@ fn setup(
     });
 }
 
-fn light_scroll(
-    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
-    height: Res<Height>,
-) {
-    for mut transform in query_light_movement.iter_mut() {
-        let transform_y_diff = (height.0 + 150.0 - transform.translation.y) * 0.05;
-        transform.translation.y += transform_y_diff;
-    }
-}
-
-fn game_over_lights(
-    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>,
-    time: Res<Time>,
-    height: Res<Height>,
-) {
-    for mut transform in query_light_movement.iter_mut() {
-        let xx = time.elapsed_seconds().sin();
-        let yy = time.elapsed_seconds().cos();
-        transform.translation.x = transform.translation.x.signum() * (300. + xx * 50.);
-        transform.translation.y = height.0 + 150. + yy * 50.;
-    }
-}
-
 fn increase_height(time: Res<Time>, mut height: ResMut<Height>) {
     if height.0 > 50. {
         height.0 += time.delta_seconds() * 15.0;
@@ -220,19 +186,12 @@ fn cleanup_game(
     mut height: ResMut<Height>,
     mut commands: Commands,
     query_joints: Query<Entity, With<DistanceJoint>>,
-    mut query_light_movement: Query<&mut Transform, With<GlobalLight>>
 ) {
     height.0 = 0.;
 
     for entity in query_joints.iter() {
         commands.entity(entity).despawn();
     }
-
-    for mut transform in query_light_movement.iter_mut() {
-        transform.translation.x = transform.translation.x.signum() * 250.0;
-        transform.translation.y = 150.0;
-    }
-
 }
 
 fn restart_game(
